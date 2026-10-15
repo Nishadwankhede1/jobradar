@@ -93,4 +93,12 @@ def load_settings() -> Settings:
 
 def load_companies(settings: Settings) -> list[dict]:
     with open(settings.path("companies"), encoding="utf-8") as f:
-        return json.load(f)
+        companies = json.load(f)
+    # employers whose sites block or disallow automated reading (e.g. from cloud servers) → follow them via job alerts
+    alerts_only = set(settings.get("sources", "alerts_only", []) or [])
+    for c in companies:
+        if c.get("id") in alerts_only and c.get("ats") not in ("manual", "email"):
+            c["ats"] = "manual"
+            c["verification_note"] = ("Site blocks or disallows automated reading from the cloud – followed through "
+                                      "LinkedIn / e-mail job alerts instead")
+    return companies

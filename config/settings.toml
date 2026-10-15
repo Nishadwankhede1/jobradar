@@ -15,6 +15,11 @@ missing_scans_before_closed = 2
 lead_expiry_days = 21            # unverifiable leads (e-mail/aggregator/manual) expire after 21 days unseen    # a job must be absent from 2 complete scans before it is marked closed
 user_agent = "JobRadar/1.0 (personal job-alert monitor; low-frequency polling of public job feeds)"
 
+[sources]
+# Employers whose sites block or disallow automated reading from cloud servers (robots.txt, HTTP 403, empty
+# answers). They stay on your list and are followed through LinkedIn / e-mail job alerts instead.
+alerts_only = ["emirates-group", "huspy", "huawei", "jumeirah-group", "totalenergies", "google"]
+
 [polling]
 # Base interval (minutes) per company priority. Adaptive: halves for sources with recent new jobs (floor = min),
 # grows 1.5x after 14 quiet days (cap = max). Failures back off exponentially (cap = max_backoff).

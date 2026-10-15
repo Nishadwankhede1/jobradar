@@ -189,6 +189,8 @@ class HttpClient:
                 headers: dict | None = None, conditional: bool = False, check_robots: bool = False) -> Response:
         if params:
             url = url + ("&" if "?" in url else "?") + urllib.parse.urlencode(params, doseq=True)
+        if not url.isascii():  # e.g. an en dash in a job URL → percent-encode it (urllib only sends ASCII)
+            url = urllib.parse.quote(url, safe=":/?#[]@!$&'()*+,;=%~")
         if check_robots and not self.allowed_by_robots(url):
             raise HttpError(999, url, "disallowed by robots.txt")
         h = {"User-Agent": self.user_agent, "Accept": "application/json, text/html;q=0.9, */*;q=0.8",
