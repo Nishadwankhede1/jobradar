@@ -160,6 +160,7 @@ jobs:
         if: always()
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          JOBRADAR_TICK_TOKEN: ${{ secrets.TICK_TOKEN }}
         run: |
           [ -f state/jobradar.db ] || exit 0
           python -m jobradar cloud-publish pages > /dev/null

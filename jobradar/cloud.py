@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import io
 import json
+import os
 import tarfile
 from pathlib import Path
 
@@ -133,7 +134,10 @@ def publish(out_dir: Path, settings, db, bot: str | None = None) -> dict:
         t = token(f.name, key)
         tokens[f.name] = t
         (out / "cv" / f"{t}.bin").write_bytes(encrypt(f.read_bytes(), key))
-    html = render(data, mode="cloud", cloud={"bot": bot, "cv": tokens})
+    # optional TICK_TOKEN secret (fine-grained, Actions-only on this repo): travels inside the encrypted page so every
+    # device that opens your private link can save ticks without its own setup
+    gh = (os.environ.get("JOBRADAR_TICK_TOKEN") or "").strip() or None
+    html = render(data, mode="cloud", cloud={"bot": bot, "cv": tokens, "gh": gh})
     (out / "data.bin").write_bytes(encrypt(html.encode("utf-8"), key))
     (out / "index.html").write_text(SHELL, encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")

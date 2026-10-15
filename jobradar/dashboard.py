@@ -427,7 +427,7 @@ function tickHtml(j){
    that can only run workflows in this one repository. The key stays in this browser; the next scan applies the tick. */
 const GHK = 'jobradar.ghtoken', TQ = 'jobradar.tickq';
 const repoOf = () => ({owner: location.hostname.split('.')[0], repo: location.pathname.split('/').filter(Boolean)[0] || ''});
-function ghToken(){ try { return localStorage.getItem(GHK) || ''; } catch(e) { return ''; } }
+function ghToken(){ let t = ''; try { t = localStorage.getItem(GHK) || ''; } catch(e) {} return t || D.gh || ''; }   // D.gh: set once as the TICK_TOKEN secret → every device
 function tqGet(){ try { return JSON.parse(localStorage.getItem(TQ) || '[]') || []; } catch(e) { return []; } }
 function tqSet(q){ try { localStorage.setItem(TQ, JSON.stringify(q)); } catch(e) {} }
 function toast(msg, bad){ let t = document.getElementById('jrtoast'); if (!t) { t = document.createElement('div'); t.id = 'jrtoast';
@@ -469,14 +469,18 @@ async function flushTicks(){
 function tickPanel(el){
   const tok = ghToken(), q = tqGet().length;
   el.className = 'note';
-  if (tok) { el.innerHTML = `Quick ticks are on in this browser ✓ – ticks save quietly and show here straight away (⏳ until the next scan confirms them).${q ? ` ${q} waiting to send.` : ''} <a href="#" id="tkoff">Turn off on this device</a>`;
-    document.getElementById('tkoff').onclick = ev => { ev.preventDefault(); try { localStorage.removeItem(GHK); } catch(x) {} modeNote(); }; return; }
+  if (tok) { el.innerHTML = `Quick ticks are on${D.gh ? ' for every device' : ' in this browser'} ✓ – tick a job and it moves here straight away (⏳ until the next scan confirms it).${q ? ` ${q} waiting to send.` : ''}${D.gh ? '' : ' <a href="#" id="tkoff">Turn off on this device</a>'}`;
+    const off = document.getElementById('tkoff');
+    if (off) off.onclick = ev => { ev.preventDefault(); try { localStorage.removeItem(GHK); } catch(x) {} modeNote(); }; return; }
   el.className = 'note warn';
-  el.innerHTML = `<b>Turn on quick ticks (one time, about 2 minutes, per device)</b>${q ? ` – ${q} tick(s) are waiting on this device` : ''}<br>
+  const {owner: ow, repo: rp} = repoOf();
+  el.innerHTML = `<b>Turn on quick ticks – once, for every device</b>${q ? ` – ${q} tick(s) are waiting on this device` : ''}<br>
     1. Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → new fine-grained token</a>.
-    Name: <code>JobRadar ticks</code> · Expiration: 1 year · Repository access: <b>Only select repositories → ${esc(repoOf().repo)}</b> ·
+    Name: <code>JobRadar ticks</code> · Expiration: 1 year (or longer) · Repository access: <b>Only select repositories → ${esc(rp)}</b> ·
     Permissions → Repository permissions → <b>Actions: Read and write</b> (nothing else). Click <b>Generate token</b> and copy it.<br>
-    2. Paste it here (it stays in this browser only): <input id="tkin" type="password" autocomplete="off" style="width:260px;max-width:100%">
+    2. Open <a href="https://github.com/${esc(ow)}/${esc(rp)}/settings/secrets/actions/new" target="_blank" rel="noopener">New repository secret</a>,
+    name it <code>TICK_TOKEN</code>, paste the token, click <b>Add secret</b>. From the next scan, ticks work on every device that opens your private link – nothing to set up again, not even after updates.<br>
+    <span style="color:var(--muted)">Only want it in this browser right now? Paste it here instead:</span> <input id="tkin" type="password" autocomplete="off" style="width:260px;max-width:100%">
     <button class="btn" id="tksave" style="padding:5px 10px">Save</button> <span id="tkmsg"></span>`;
   document.getElementById('tksave').onclick = async () => {
     const v = document.getElementById('tkin').value.trim(), m = document.getElementById('tkmsg'), {owner, repo} = repoOf();
@@ -620,7 +624,7 @@ if (LOCALHOST && !D.online && !D.cloud) api().then(async () => {   // server is 
 def render(data: dict, fragment: bool = False, mode: str | None = None, cloud: dict | None = None) -> str:
     if mode == "cloud":  # encrypted GitHub Pages copy: CV names → opaque tokens, ticks go through Telegram
         tok = (cloud or {}).get("cv") or {}
-        data = {**data, "cv_base": None, "cloud": True, "bot": (cloud or {}).get("bot"),
+        data = {**data, "cv_base": None, "cloud": True, "bot": (cloud or {}).get("bot"), "gh": (cloud or {}).get("gh") or None,
                 "jobs": [{**j, "cv_file": tok.get(j.get("cv_file"))} for j in data["jobs"]],
                 "applications": [{**a, "cv_file": tok.get(a.get("cv_file"))} for a in data.get("applications", [])]}
     if fragment:  # the online copy never links to (or embeds) your CV files – they stay on your PC
