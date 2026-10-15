@@ -1,0 +1,170 @@
+# JobRadar in the cloud (public repository, everything personal encrypted).
+#  - code: this repository (no personal data in it – checked below)
+#  - your CV / profile / Telegram / Gmail: repository secrets
+#  - database + tailored CVs: one encrypted file (vault.bin) kept in the Actions cache, backed up to the `state` branch
+#  - dashboard: encrypted site on GitHub Pages; your private link carries the key after '#'
+name: JobRadar scan
+
+on:
+  schedule:
+    - cron: "*/15 * * * *"        # GitHub can delay scheduled runs by 5-20 minutes when busy
+  workflow_dispatch:
+    inputs:
+      force:
+        description: "Scan every company now (first run / after changes)"
+        type: boolean
+        default: false
+      digest:
+        description: "Also send today's digest now"
+        type: boolean
+        default: false
+
+concurrency:
+  group: jobradar-state
+  cancel-in-progress: false
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+jobs:
+  scan:
+    runs-on: ubuntu-latest
+    timeout-minutes: 14
+    outputs:
+      published: ${{ steps.pub.outputs.published }}
+    env:
+      JOBRADAR_KEY: ${{ secrets.JOBRADAR_KEY }}
+      PYTHONUTF8: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Safety check – no personal files in the public code
+        run: |
+          bad=0
+          for f in config/resume.json config/profile.toml .env state output CLOUD_SETUP_PRIVATE.txt; do
+            if [ -e "$f" ]; then echo "::error::'$f' must NOT be in this public repository - delete it on GitHub"; bad=1; fi
+          done
+          [ -n "$JOBRADAR_KEY" ] || { echo "::error::The JOBRADAR_KEY secret is missing (see CLOUD_SETUP_PRIVATE.txt on your PC)"; bad=1; }
+          exit $bad
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: "3.12"
+          cache: pip
+          cache-dependency-path: requirements-cloud.txt
+
+      - name: Install
+        run: pip install --quiet -r requirements-cloud.txt
+
+      - name: CV font (Carlito, same metrics as Calibri)
+        run: |
+          if [ ! -f jobradar/resume/fonts/Carlito-Regular.ttf ] && [ ! -f /usr/share/fonts/truetype/crosextra/Carlito-Regular.ttf ]; then
+            sudo apt-get install -y -qq fonts-crosextra-carlito >/dev/null 2>&1 || \
+              (sudo apt-get update -qq >/dev/null && sudo apt-get install -y -qq fonts-crosextra-carlito >/dev/null)
+          fi
+
+      - name: Your private settings (from secrets, never printed)
+        env:
+          RESUME_JSON: ${{ secrets.RESUME_JSON }}
+          PROFILE_TOML: ${{ secrets.PROFILE_TOML }}
+        run: |
+          [ -n "$PROFILE_TOML" ] || { echo "::error::The PROFILE_TOML secret is missing"; exit 1; }
+          printf '%s' "$PROFILE_TOML" > config/profile.toml
+          if [ -n "$RESUME_JSON" ]; then printf '%s' "$RESUME_JSON" > config/resume.json; fi
+
+      - name: Restore encrypted state (cache)
+        id: cache
+        uses: actions/cache/restore@v4
+        with:
+          path: vault.bin
+          key: vault-${{ github.run_id }}
+          restore-keys: vault-
+
+      - name: Restore encrypted state (backup branch)
+        if: steps.cache.outputs.cache-matched-key == ''
+        run: |
+          if git ls-remote --exit-code --heads origin state >/dev/null 2>&1; then
+            git fetch -q --depth=1 origin state && git show FETCH_HEAD:vault.bin > vault.bin && echo "restored from backup"
+          else
+            echo "first run - starting fresh"
+          fi
+
+      - name: Decrypt
+        run: python -m jobradar cloud-restore vault.bin
+
+      - name: Scan, score, tailor CVs, alert
+        timeout-minutes: 10
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+          TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
+          IMAP_USER: ${{ secrets.IMAP_USER }}
+          IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
+          IMAP_HOST: ${{ vars.IMAP_HOST }}
+          LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
+          LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          JOBRADAR_TELEGRAM_COMMANDS: "1"
+          JOBRADAR_MAX_RUNTIME: "480"
+        run: |
+          mkdir -p state
+          FORCE=""; [ "${{ github.event.inputs.force }}" = "true" ] && FORCE="--force"
+          # the detailed log can mention your matches, so it goes into the encrypted vault, not the public log
+          set +e
+          python -m jobradar scan $FORCE --trigger "${{ github.event_name }}" > state/last_run.log 2>&1
+          rc=$?
+          if [ "${{ github.event.inputs.digest }}" = "true" ]; then python -m jobradar digest --force >> state/last_run.log 2>&1; fi
+          set -e
+          python -c "from jobradar.config import load_settings; from jobradar.db import Database; from jobradar.dashboard import coverage_stats; s = coverage_stats(Database(str(load_settings().path('database')))); print({k: s.get(k) for k in ('companies_discovered', 'sources_monitored_ok', 'sources_failing', 'vacancies_active', 'relevant_jobs', 'alerts_sent')})" 2>/dev/null || true
+          if [ $rc -ne 0 ]; then echo "::error::scan failed: $(tail -n 1 state/last_run.log | cut -c1-200)"; exit $rc; fi
+
+      - name: Encrypt state
+        if: always()
+        run: |
+          [ -f state/jobradar.db ] && python -m jobradar cloud-save vault.bin || echo "nothing to save"
+
+      - name: Save encrypted state (cache)
+        if: always() && hashFiles('vault.bin') != ''
+        uses: actions/cache/save@v4
+        with:
+          path: vault.bin
+          key: vault-${{ github.run_id }}-${{ github.run_attempt }}
+
+      - name: Backup encrypted state to the `state` branch (every ~3 hours)
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          [ -f vault.bin ] || exit 0
+          h=$(date -u +%H); m=$(date -u +%M)
+          if [ $((10#$h % 3)) -ne 0 ] || [ $((10#$m)) -ge 20 ]; then
+            if [ "${{ steps.cache.outputs.cache-matched-key }}" != "" ] && [ "${{ github.event_name }}" = "schedule" ]; then exit 0; fi
+          fi
+          tmp=$(mktemp -d); cp vault.bin "$tmp/"; cd "$tmp"
+          git init -q -b state && git add vault.bin
+          git -c user.name=jobradar-bot -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -q -m "encrypted state $(date -u +%FT%TZ)"
+          git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" state
+
+      - name: Build encrypted dashboard
+        id: pub
+        if: always()
+        env:
+          TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
+        run: |
+          [ -f state/jobradar.db ] || exit 0
+          python -m jobradar cloud-publish pages > /dev/null
+          echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - uses: actions/upload-pages-artifact@v3
+        if: always() && steps.pub.outputs.published == 'true'
+        with:
+          path: pages
+
+  deploy:
+    needs: scan
+    if: always() && needs.scan.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/deploy-pages@v4

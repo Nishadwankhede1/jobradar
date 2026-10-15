@@ -1,0 +1,116 @@
+# Job-title taxonomy for a ~4-year BI / Data Analyst (Power BI, SQL, Snowflake, Python, financial data).
+# fit: 1.0 = core target, 0.8 = strong adjacent, 0.6 = adjacent (depends on JD), 0.4 = stretch.
+# Titles are matched as case-insensitive regex against the normalised title ("bi" is expanded to
+# "business intelligence", "sr" -> "senior"). Titles are NEVER used alone – the description decides
+# (see scoring/scorer.py: semantic gate rescues off-title roles and rejects misleading titles).
+
+[[family]]
+name = "Business Intelligence"
+fit = 1.0
+titles = [
+  "business intelligence (analyst|developer|engineer|specialist|consultant|lead|associate|executive|officer)",
+  "power ?bi (developer|analyst|consultant|specialist|engineer|lead)",
+  "(senior )?reporting (analyst|developer|specialist|executive|officer|lead|engineer)",
+  "mis (analyst|executive|specialist|officer|lead|coordinator|reporting)",
+  "management information (analyst|executive|specialist)",
+  "(bi|dashboard|visuali[sz]ation) (developer|analyst|specialist|engineer)",
+  "analytics (specialist|consultant|associate|executive|analyst|officer)",
+  "insights? (analyst|specialist|executive)",
+  "data visuali[sz]ation (specialist|analyst|developer|engineer)",
+  "tableau developer", "qlik developer", "bi engineer", "reporting and analytics",
+]
+
+[[family]]
+name = "Data & Analytics"
+fit = 1.0
+titles = [
+  "(senior |junior |lead |associate )?data analyst",
+  "business data analyst", "data (quality|operations|governance|reporting) (analyst|specialist|associate|officer)",
+  "analytics engineer", "(junior |associate )?data engineer", "sql (developer|analyst|engineer)",
+  "data (specialist|associate|consultant)", "data and analytics (analyst|consultant|associate|specialist)",
+  "product analyst", "marketing (data |performance )?analyst", "crm (analyst|data analyst)",
+  "customer (insights|analytics|data) analyst", "digital analyst", "web analyst", "growth analyst",
+  "pricing analyst", "supply chain (data )?analyst", "people analytics", "hr (data )?analyst", "workforce analyst",
+]
+
+[[family]]
+name = "Business & Operations Analysis"
+fit = 0.8
+titles = [
+  "business analyst", "(senior )?business systems analyst", "techno[- ]functional (business )?analyst",
+  "operations (analyst|excellence analyst)", "business (performance|planning|operations) analyst",
+  "commercial (analyst|excellence|insights)", "revenue (analyst|operations|management analyst)",
+  "sales (operations|ops|excellence|performance|planning) (analyst|specialist|executive|associate)",
+  "strategy (analyst|associate)", "performance (analyst|management analyst|specialist)",
+  "process (improvement|excellence) analyst", "transformation analyst", "planning analyst",
+  "salesforce (business )?analyst", "crm business analyst", "project analyst", "pmo analyst",
+]
+
+[[family]]
+name = "Finance & Investment Data"
+fit = 0.8
+titles = [
+  "financial data analyst", "investment (data|operations|performance|reporting) analyst",
+  "portfolio (reporting|analytics|data) analyst", "risk (reporting|data|mi) analyst", "regulatory reporting analyst",
+  "fund (reporting|data|operations) analyst", "market data analyst", "performance and attribution analyst",
+  "client reporting analyst", "wealth (data|reporting) analyst", "financial (planning |reporting )?analyst",
+  "fp&a analyst", "credit (risk )?analyst", "treasury analyst", "quantitative analyst",
+]
+
+[[family]]
+name = "Early Career Programmes"
+fit = 0.8
+titles = [
+  "graduate (analyst|data analyst|programme|program|scheme|trainee|development programme)",
+  "technology graduate", "management trainee", "(data|analytics|business intelligence|business analyst|bi|reporting) intern",
+  "internship.*(data|analytics|business intelligence|bi|reporting|business analyst|finance|strategy)",
+  "analyst (development )?programme", "analyst program", "rotational programme", "future leaders programme",
+  "emerging talent", "early careers?", "trainee analyst", "junior analyst",
+]
+
+[[family]]
+name = "Adjacent / stretch (description must confirm)"
+fit = 0.6
+titles = [
+  "data scientist", "machine learning analyst", "(senior )?consultant.*(data|analytics|bi)", "data (product|programme) (manager|owner|analyst)",
+  "analytics manager", "(manager|lead),? (data|analytics|business intelligence|reporting|bi)", "head of (bi|reporting|mis)",
+  "(business intelligence|data|analytics|reporting|insights|mis) (manager|lead|partner)", "risk (strategy|operations|data) analyst", "(fraud|risk) analyst",
+  "operations executive", "sales operations executive", "mis executive", "reporting executive", "coordinator.*(report|data)",
+  "officer.*(data|report|mis|analytics)", "executive.*(data|report|mis|analytics|insights)", "specialist.*(data|report|insight|analytics)",
+]
+
+[negative]
+# Titles that are almost never a fit unless the description is overwhelmingly BI/SQL (gate threshold applies).
+titles = [
+  "software (engineer|developer)", "front[- ]?end", "back[- ]?end", "full[- ]?stack", "mobile (developer|engineer)", "ios", "android",
+  "devops", "site reliability", "network engineer", "security (engineer|analyst)", "soc analyst", "penetration",
+  "sales (executive|manager|representative|director|team lead)", "account (executive|manager)", "key account", "commercial manager",
+  "merchant (acquisition|retention|success)", "people (operations|services|business partner)", "hrbp", "money laundering", "mlro",
+  "legal", "licensing counsel", "product manager", "product designer", "copywriter", "animator", "vip relationship", "business development", "relationship manager",
+  "nurse", "doctor", "physician", "pharmacist", "chef", "cook", "waiter", "housekeeping", "driver", "technician", "mechanic",
+  "teacher", "lecturer", "receptionist", "cashier", "barista", "security guard", "civil engineer", "electrical engineer",
+  "mechanical engineer", "architect(?! .*data)", "designer", "copywriter", "recruiter", "talent acquisition", "legal counsel",
+  "lawyer", "accountant", "auditor", "tax ", "underwriter", "actuar", "customer service", "call cent", "store manager",
+  "marketing manager", "brand manager", "social media", "content creator", "community manager", "product designer",
+]
+
+[seniority]
+# Multipliers applied to the experience sub-score by title level for a ~4-year candidate.
+intern = 0.75
+graduate = 0.8
+junior = 0.85
+associate = 0.95
+analyst = 1.0
+senior = 0.9
+lead = 0.65
+manager = 0.55
+head = 0.2
+director = 0.1
+vp = 0.1
+chief = 0.05
+
+[search_queries]
+# Used for external discovery sources (Workable search, Jooble, e-mail alert set-up guidance)
+queries = ["power bi", "business intelligence", "bi analyst", "data analyst", "reporting analyst", "mis analyst",
+           "analytics engineer", "sql developer", "business analyst", "data quality analyst", "commercial analyst",
+           "graduate programme", "management trainee", "data intern"]

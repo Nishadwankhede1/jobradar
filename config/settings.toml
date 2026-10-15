@@ -1,0 +1,71 @@
+# JobRadar runtime configuration. Secrets are NEVER stored here – they come from environment variables
+# (GitHub Actions secrets / .env): TELEGRAM_BOT_TOKEN, TELEGRAM_CHAT_ID, WHATSAPP_*, LLM_API_KEY, IMAP_*, JOOBLE_API_KEY.
+
+[paths]
+database = "state/jobradar.db"
+companies = "config/companies.json"
+dashboard_dir = "site"
+
+[scan]
+max_runtime_seconds = 420          # stop starting new sources after this (GitHub Actions friendly)
+workers = 8                        # parallel sources (each host is still throttled individually)
+per_host_min_interval = 0.6        # seconds between requests to the same host
+max_detail_fetches_per_source = 60
+missing_scans_before_closed = 2
+lead_expiry_days = 21            # unverifiable leads (e-mail/aggregator/manual) expire after 21 days unseen    # a job must be absent from 2 complete scans before it is marked closed
+user_agent = "JobRadar/1.0 (personal job-alert monitor; low-frequency polling of public job feeds)"
+
+[polling]
+# Base interval (minutes) per company priority. Adaptive: halves for sources with recent new jobs (floor = min),
+# grows 1.5x after 14 quiet days (cap = max). Failures back off exponentially (cap = max_backoff).
+priority_1 = 15
+priority_2 = 30
+priority_3 = 60
+aggregator = 60
+min = 15
+max = 240
+max_backoff = 1440
+
+[locations]
+# tier -> eligibility penalty (0 = fine). "outside" is a hard disqualifier.
+dubai = 0.0
+uae_unspecified = 0.5
+uae_other = 3.0        # Abu Dhabi / Sharjah / northern emirates – still shown, lower priority
+remote = 1.0
+hard_reject_outside_uae = true
+uae_other_max_score = 6.9   # Abu Dhabi / northern emirates roles go to the digest, not instant alerts
+
+[scoring]
+notify_threshold = 7.0            # minimum score for any alert
+immediate_threshold = 7.0         # >= this → instant Telegram alert (raise to 8.0 for fewer pings)
+digest_min_score = 6.0            # daily digest includes everything >= this from the last 24h
+weights = { technical = 0.30, responsibilities = 0.25, experience = 0.15, eligibility = 0.15, industry = 0.10, career = 0.05 }
+stage_a_min_signal = 3            # analytics signals needed to rescue an off-taxonomy title
+agency_penalty = 0.3
+
+[llm]
+# Optional semantic re-ranking. provider: "none" | "anthropic" | "openai_compatible"
+# openai_compatible works with Google Gemini (free tier), Groq (free tier), OpenRouter, OpenAI.
+provider = "none"
+model = "gemini-2.5-flash"
+base_url = "https://generativelanguage.googleapis.com/v1beta/openai"
+min_rule_score = 5.5              # only call the LLM for jobs that already look plausible (cost control)
+max_calls_per_run = 25
+blend = 0.5                       # final sub-score = (1-blend)*rules + blend*llm  (hard rules always win)
+
+[notify]
+channels = ["telegram"]           # add "whatsapp" once configured
+digest_hour_dubai = 9             # 09:00 Asia/Dubai
+alert_on_baseline = false         # first scan of a source → one summary message instead of N alerts
+baseline_summary_top = 10
+max_alerts_per_run = 15           # safety valve against floods
+include_unverified_leads_in_digest = true
+
+[dashboard]
+title = "JobRadar · Dubai BI & Analytics"
+
+[resume]
+# Tailored CV for every relevant job, built from config/resume.json (your real CV – nothing is invented).
+enabled = true
+min_score = 7.0                 # same as the alert threshold
+output_dir = "output/resumes"   # PDFs land here; the dashboard links to them

@@ -1,0 +1,13 @@
+.env
+__pycache__/
+*.pyc
+state/
+site/
+.DS_Store
+output/
+config/resume.json
+upload_to_github/
+CLOUD_SETUP_PRIVATE.txt
+vault.bin
+pages/
+config/profile.toml

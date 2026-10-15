@@ -1,0 +1,228 @@
+[
+ {
+  "company_id": "dubai-islamic-bank",
+  "name": "Dubai Islamic Bank",
+  "senders": [
+   "dib.ae",
+   "talentera"
+  ],
+  "link_pattern": "careers\\.dib\\.ae/[a-z]{2}/(?:[a-z]+/)?jobs?/[^\\s\\\"']+",
+  "signup": "https://careers.dib.ae/en/job-search-results/ → register/sign in → Job alerts"
+ },
+ {
+  "company_id": "rakbank",
+  "name": "RAKBANK",
+  "senders": [
+   "rakbank"
+  ],
+  "link_pattern": "careers\\.rakbank\\.ae/[a-z]{2}/(?:[a-z]+/)?jobs?/[^\\s\\\"']+",
+  "signup": "https://careers.rakbank.ae/ → register → Job alerts"
+ },
+ {
+  "company_id": "dubai-holding",
+  "name": "Dubai Holding",
+  "senders": [
+   "dubaiholding",
+   "dhcareers",
+   "avature"
+  ],
+  "link_pattern": "dhcareers\\.avature\\.net/[^\\s\\\"']*JobDetail/[^\\s\\\"']+",
+  "signup": "https://dhcareers.avature.net/en_US/careers → Join talent community / job alerts"
+ },
+ {
+  "company_id": "nakheel",
+  "name": "Nakheel",
+  "senders": [
+   "nakheel"
+  ],
+  "link_pattern": "(?:nakheel\\.com|dhcareers\\.avature\\.net)/[^\\s\\\"']*(?:JobDetail|job)[^\\s\\\"']*",
+  "signup": "Dubai Holding careers portal (covers Nakheel) → job alerts"
+ },
+ {
+  "company_id": "l-oreal-middle-east",
+  "name": "L'Oréal Middle East",
+  "senders": [
+   "loreal"
+  ],
+  "link_pattern": "careers\\.loreal\\.com/[^\\s\\\"']*JobDetail/[^\\s\\\"']+",
+  "signup": "https://careers.loreal.com → create profile → job alerts (location: Dubai)"
+ },
+ {
+  "company_id": "ibm",
+  "name": "IBM",
+  "senders": [
+   "ibm.com"
+  ],
+  "link_pattern": "(?:careers\\.ibm\\.com|ibm\\.com/careers)/[^\\s\\\"']*(?:JobDetail|job)[^\\s\\\"']*",
+  "signup": "https://www.ibm.com/careers → job alerts (location: United Arab Emirates)"
+ },
+ {
+  "company_id": "damac-properties",
+  "name": "DAMAC Properties",
+  "senders": [
+   "damac"
+  ],
+  "link_pattern": "careers\\.damacproperties\\.com/[^\\s\\\"']*/job/[^\\s\\\"']+",
+  "signup": "https://careers.damacproperties.com/global/en/jointalentcommunity → join talent community"
+ },
+ {
+  "company_id": "ubs",
+  "name": "UBS",
+  "senders": [
+   "ubs.com",
+   "brassring"
+  ],
+  "link_pattern": "jobs\\.ubs\\.com/[^\\s\\\"']*jobid=\\d+",
+  "signup": "https://jobs.ubs.com → Job alerts (location: Dubai)"
+ },
+ {
+  "company_id": "sukoon-insurance",
+  "name": "Sukoon Insurance",
+  "senders": [
+   "sukoon"
+  ],
+  "link_pattern": "(?:careers\\.)?sukoon\\.com/[^\\s\\\"']*",
+  "signup": "https://www.sukoon.com/en/careers → register → job alerts"
+ },
+ {
+  "company_id": "expo-city-dubai",
+  "name": "Expo City Dubai",
+  "senders": [
+   "expocitydubai",
+   "darwinbox"
+  ],
+  "link_pattern": "darwinbox\\.com/[^\\s\\\"']*(?:careers|job)[^\\s\\\"']*",
+  "signup": "https://ecdhrconnect.darwinbox.com/ms/candidatev2/main/careers/allJobs → sign up → job alerts"
+ },
+ {
+  "company_id": "google",
+  "name": "Google",
+  "senders": [
+   "google.com",
+   "careers-noreply"
+  ],
+  "link_pattern": "google\\.com/about/careers/applications/jobs/results/\\d+[^\\s\\\"']*",
+  "signup": "https://www.google.com/about/careers/applications/jobs/results/?location=United%20Arab%20Emirates → 'Create job alert'"
+ },
+ {
+  "company_id": "meta",
+  "name": "Meta",
+  "senders": [
+   "metacareers",
+   "meta.com",
+   "facebookmail"
+  ],
+  "link_pattern": "metacareers\\.com/(?:jobs|profile/job_details)/\\d+",
+  "signup": "https://www.metacareers.com/jobs → sign in → Job alerts (office: Dubai)"
+ },
+ {
+  "company_id": "goldman-sachs",
+  "name": "Goldman Sachs",
+  "senders": [
+   "gs.com"
+  ],
+  "link_pattern": "higher\\.gs\\.com/roles/\\d+",
+  "signup": "https://higher.gs.com → create profile → job alerts (location: Dubai)"
+ },
+ {
+  "company_id": "ihg-hotels-resorts",
+  "name": "IHG Hotels & Resorts",
+  "senders": [
+   "ihg"
+  ],
+  "link_pattern": "careers\\.ihg\\.com/[^\\s\\\"']*job[^\\s\\\"']*",
+  "signup": "https://careers.ihg.com → Job alerts (keyword: Dubai)"
+ },
+ {
+  "company_id": "du",
+  "name": "du",
+  "senders": [
+   "du.ae"
+  ],
+  "link_pattern": "careers\\.du\\.ae/[^\\s\\\"']*",
+  "signup": "https://careers.du.ae → register → job alerts"
+ },
+ {
+  "company_id": "dewa",
+  "name": "DEWA",
+  "senders": [
+   "dewa.gov.ae"
+  ],
+  "link_pattern": "dewa\\.gov\\.ae/[^\\s\\\"']*",
+  "signup": "https://www.dewa.gov.ae careers portal → register → job alerts"
+ },
+ {
+  "company_id": "revolut",
+  "name": "Revolut",
+  "senders": [
+   "revolut"
+  ],
+  "link_pattern": "revolut\\.com/careers/position/[^\\s\\\"']+",
+  "signup": "https://www.revolut.com/careers → Job alerts (location: UAE)"
+ },
+ {
+  "company_id": "tesla",
+  "name": "Tesla",
+  "senders": [
+   "tesla.com"
+  ],
+  "link_pattern": "tesla\\.com/careers/search/job/[^\\s\\\"']+",
+  "signup": "https://www.tesla.com/careers → sign in → job alerts (country: United Arab Emirates)"
+ },
+ {
+  "company_id": "tiktok",
+  "name": "TikTok",
+  "senders": [
+   "tiktok",
+   "bytedance"
+  ],
+  "link_pattern": "lifeattiktok\\.com/(?:search|position)/\\d+",
+  "signup": "https://lifeattiktok.com → sign in → job subscriptions (location: Dubai)"
+ },
+ {
+  "company_id": "dubai-financial-market",
+  "name": "Dubai Financial Market",
+  "senders": [
+   "dfm.ae"
+  ],
+  "link_pattern": "hr-rec\\.dfm\\.ae/[^\\s\\\"']*",
+  "signup": "https://hr-rec.dfm.ae → register → vacancy alerts"
+ },
+ {
+  "company_id": "alshaya-group",
+  "name": "Alshaya Group",
+  "senders": [
+   "alshaya"
+  ],
+  "link_pattern": "jobsearch\\.alshaya\\.com/en/job/\\d+[^\\s\\\"']*",
+  "signup": "https://jobsearch.alshaya.com/en/listing → 'Send me jobs like these'"
+ },
+ {
+  "company_id": "namshi",
+  "name": "Namshi",
+  "senders": [
+   "namshi"
+  ],
+  "link_pattern": "namshi\\.com/[^\\s\\\"']*",
+  "signup": "LinkedIn company alert (no employer alert service found)"
+ },
+ {
+  "company_id": "hyatt-hotels",
+  "name": "Hyatt",
+  "senders": [
+   "hyatt"
+  ],
+  "link_pattern": "careers\\.hyatt\\.com/[^\\s\\\"']*(?:jobdetails|details)/[^\\s\\\"']+",
+  "signup": "https://careers.hyatt.com/en-US/careers/job-alerts → location: Dubai"
+ },
+ {
+  "company_id": "lead-techcarrot-fz-llc",
+  "name": "techcarrot",
+  "senders": [
+   "techcarrot",
+   "zohorecruit"
+  ],
+  "link_pattern": "zohorecruit\\.com/jobs/Careers/\\d+[^\\s\\\"']*",
+  "signup": "https://techcarrot.zohorecruit.com/jobs/Careers → job alerts"
+ }
+]
