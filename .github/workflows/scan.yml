@@ -31,7 +31,7 @@ permissions:
 jobs:
   scan:
     runs-on: ubuntu-latest
-    timeout-minutes: 14
+    timeout-minutes: 40
     outputs:
       published: ${{ steps.pub.outputs.published }}
     env:
@@ -95,7 +95,7 @@ jobs:
         run: python -m jobradar cloud-restore vault.bin
 
       - name: Scan, score, tailor CVs, alert
-        timeout-minutes: 10
+        timeout-minutes: 30
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           TELEGRAM_CHAT_ID: ${{ secrets.TELEGRAM_CHAT_ID }}
@@ -121,6 +121,7 @@ jobs:
       - name: Encrypt state
         if: always()
         run: |
+          pkill -f "jobradar scan" 2>/dev/null && sleep 3 || true   # a timed-out scan must not keep the database locked
           [ -f state/jobradar.db ] && python -m jobradar cloud-save vault.bin || echo "nothing to save"
 
       - name: Save encrypted state (cache)
