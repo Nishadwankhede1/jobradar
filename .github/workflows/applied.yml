@@ -1,0 +1,21 @@
+# Receives "Applied" ticks from your dashboard. The tick is encrypted with your dashboard key and stored only in this
+# run's title; the next scan reads it, decrypts it and saves it in your (encrypted) database.
+name: JobRadar tick
+run-name: "tick ${{ inputs.p }}"
+
+on:
+  workflow_dispatch:
+    inputs:
+      p:
+        description: "encrypted tick (sent by the dashboard)"
+        type: string
+        required: true
+
+permissions: {}
+
+jobs:
+  received:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - run: echo "Tick received - it is applied at the next scan."

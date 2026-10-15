@@ -27,6 +27,7 @@ permissions:
   contents: write
   pages: write
   id-token: write
+  actions: read
 
 jobs:
   scan:
@@ -93,6 +94,14 @@ jobs:
 
       - name: Decrypt
         run: python -m jobradar cloud-restore vault.bin
+
+      - name: Apply ticks from the dashboard
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          curl -sf -H "Authorization: Bearer $GH_TOKEN" -H "Accept: application/vnd.github+json" \
+            "https://api.github.com/repos/${GITHUB_REPOSITORY}/actions/workflows/applied.yml/runs?per_page=100" > ticks.json \
+            && python -m jobradar cloud-ticks ticks.json || echo "no ticks"
 
       - name: Scan, score, tailor CVs, alert
         timeout-minutes: 30

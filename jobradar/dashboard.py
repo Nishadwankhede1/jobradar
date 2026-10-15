@@ -399,12 +399,12 @@ async function setApplied(id, on, status){
   if (D.online) return;
   const j = D.jobs.find(x => x.id === id), prev = APPS.get(id);
   if (D.cloud) {
-    if (!D.bot) { modeNote(); return; }
-    window.open('https://t.me/' + D.bot + '?start=' + (status ? 'st' + id + '_' + status : (on ? 'ap' : 'un') + id), '_blank', 'noopener');
     const snap = prev || (j ? snapshot(j) : {job_id: id});
     if (on) APPS.set(id, {...snap, ...(status ? {status} : {}), pending: true}); else APPS.delete(id);
     const o = pGet(); o[id] = {on, status: status || null, at: Date.now(), snap}; pSet(o);
-    refreshAll(); return;
+    refreshAll();
+    queueTick({id, on, st: status || null});   // saved quietly through GitHub (no new tab)
+    return;
   }
   if (on) APPS.set(id, {...(prev || (j ? snapshot(j) : {job_id:id})), ...(status ? {status} : {})}); else APPS.delete(id);
   if (API) { try { await api({job_id: id, applied: on, status}); } catch(e) { API = false; } }
@@ -414,15 +414,78 @@ async function setApplied(id, on, status){
 function modeNote(){
   const el = $('appmode');
   if (D.online) { el.className = 'note'; el.textContent = 'This online copy is read-only. Tick jobs as applied in the dashboard on your PC – it shows here after the next update.'; }
-  else if (D.cloud && !D.bot) { el.className = 'note warn'; el.textContent = 'Connect your Telegram bot (TELEGRAM_BOT_TOKEN secret) to save Applied ticks.'; }
-  else if (D.cloud) { el.className = 'note'; el.innerHTML = 'Ticks are saved through your Telegram bot: after you tick, Telegram opens – tap <b>Start</b>. The next scan (within about 15 minutes) stores it; until then it shows ⏳. You can also tap /applied_… under any alert.'; }
+  else if (D.cloud) { tickPanel(el); }
   else if (API) { el.className = 'note'; el.textContent = 'Saved to your JobRadar database – kept after every scan and refresh.'; }
   else { el.className = 'note warn'; el.innerHTML = 'You opened the dashboard as a file, so ticks are kept only in this file view of this browser. For ticks that are saved in JobRadar (and stop duplicate alerts), double-click <b>open_dashboard.bat</b> and tick there.'; }
 }
 function tickHtml(j){
   const m = appFor(j), on = !!(m && m.self);
-  const t = D.online ? 'Mark jobs as applied in the dashboard on your PC' : on ? (m.a.pending ? 'Saving through Telegram… click to undo' : 'Applied – click to undo') : 'Tick when you have applied';
+  const t = D.online ? 'Mark jobs as applied in the dashboard on your PC' : on ? (m.a.pending ? 'Applied (saving…) – click to undo' : 'Applied – click to undo') : 'Tick when you have applied';
   return `<button class="tick" data-tick="${j.id}" aria-pressed="${on}" title="${t}" aria-label="${t}" ${D.online ? 'disabled' : ''}>✓</button>`;
+}
+/* ---------------- cloud "quick ticks": an encrypted tick is sent to the 'JobRadar tick' workflow with a GitHub key
+   that can only run workflows in this one repository. The key stays in this browser; the next scan applies the tick. */
+const GHK = 'jobradar.ghtoken', TQ = 'jobradar.tickq';
+const repoOf = () => ({owner: location.hostname.split('.')[0], repo: location.pathname.split('/').filter(Boolean)[0] || ''});
+function ghToken(){ try { return localStorage.getItem(GHK) || ''; } catch(e) { return ''; } }
+function tqGet(){ try { return JSON.parse(localStorage.getItem(TQ) || '[]') || []; } catch(e) { return []; } }
+function tqSet(q){ try { localStorage.setItem(TQ, JSON.stringify(q)); } catch(e) {} }
+function toast(msg, bad){ let t = document.getElementById('jrtoast'); if (!t) { t = document.createElement('div'); t.id = 'jrtoast';
+  t.style.cssText = 'position:fixed;left:50%;bottom:20px;transform:translateX(-50%);padding:10px 16px;border-radius:8px;font:600 14px var(--body);z-index:99;box-shadow:0 4px 16px rgba(0,0,0,.25)';
+  document.body.appendChild(t); }
+  t.style.background = bad ? 'var(--bad)' : 'var(--good)'; t.style.color = '#fff'; t.textContent = msg; t.hidden = false;
+  clearTimeout(t._h); t._h = setTimeout(() => { t.hidden = true; }, 3500); }
+async function sealTick(items){
+  let k = null; try { k = sessionStorage.getItem('jobradar.key') || localStorage.getItem('jobradar.key'); } catch(e) {}
+  if (!k) throw new Error('nokey');
+  const b = s => { s = s.replace(/-/g,'+').replace(/_/g,'/'); while (s.length % 4) s += '='; return Uint8Array.from(atob(s), c => c.charCodeAt(0)); };
+  const ck = await crypto.subtle.importKey('raw', b(k), 'AES-GCM', false, ['encrypt']);
+  const iv = crypto.getRandomValues(new Uint8Array(12)), aad = new TextEncoder().encode('JR1');
+  const ct = new Uint8Array(await crypto.subtle.encrypt({name: 'AES-GCM', iv, additionalData: aad}, ck, new TextEncoder().encode(JSON.stringify(items))));
+  const all = new Uint8Array(3 + 12 + ct.length); all.set(aad, 0); all.set(iv, 3); all.set(ct, 15);
+  let bin = ''; all.forEach(x => bin += String.fromCharCode(x));
+  return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+}
+let tqTimer = null;
+function queueTick(item){
+  const q = tqGet().filter(x => x.id !== item.id); q.push(item); tqSet(q);
+  if (!ghToken()) { show('app'); toast('Saved on this device – connect quick ticks to save it for good', true); return; }
+  clearTimeout(tqTimer); tqTimer = setTimeout(flushTicks, 1200);
+}
+async function flushTicks(){
+  const q = tqGet(), tok = ghToken(); if (!q.length || !tok) return;
+  const {owner, repo} = repoOf();
+  try {
+    for (let i = 0; i < q.length; i += 6) {
+      const p = await sealTick(q.slice(i, i + 6));
+      const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/applied.yml/dispatches`, {method: 'POST',
+        headers: {'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'},
+        body: JSON.stringify({ref: 'main', inputs: {p}})});
+      if (r.status !== 204) throw new Error('HTTP ' + r.status);
+    }
+    tqSet([]); toast('Saved ✓');
+  } catch(e) { toast(e.message === 'nokey' ? 'Open the dashboard from your private link first' : 'Could not save the tick (' + e.message + ') – check your quick-tick key', true); }
+}
+function tickPanel(el){
+  const tok = ghToken(), q = tqGet().length;
+  el.className = 'note';
+  if (tok) { el.innerHTML = `Quick ticks are on in this browser ✓ – ticks save quietly and show here straight away (⏳ until the next scan confirms them).${q ? ` ${q} waiting to send.` : ''} <a href="#" id="tkoff">Turn off on this device</a>`;
+    document.getElementById('tkoff').onclick = ev => { ev.preventDefault(); try { localStorage.removeItem(GHK); } catch(x) {} modeNote(); }; return; }
+  el.className = 'note warn';
+  el.innerHTML = `<b>Turn on quick ticks (one time, about 2 minutes, per device)</b>${q ? ` – ${q} tick(s) are waiting on this device` : ''}<br>
+    1. Open <a href="https://github.com/settings/personal-access-tokens/new" target="_blank" rel="noopener">GitHub → new fine-grained token</a>.
+    Name: <code>JobRadar ticks</code> · Expiration: 1 year · Repository access: <b>Only select repositories → ${esc(repoOf().repo)}</b> ·
+    Permissions → Repository permissions → <b>Actions: Read and write</b> (nothing else). Click <b>Generate token</b> and copy it.<br>
+    2. Paste it here (it stays in this browser only): <input id="tkin" type="password" autocomplete="off" style="width:260px;max-width:100%">
+    <button class="btn" id="tksave" style="padding:5px 10px">Save</button> <span id="tkmsg"></span>`;
+  document.getElementById('tksave').onclick = async () => {
+    const v = document.getElementById('tkin').value.trim(), m = document.getElementById('tkmsg'), {owner, repo} = repoOf();
+    if (!v) return; m.textContent = 'Checking…';
+    try { const r = await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/applied.yml`, {headers: {'Authorization': 'Bearer ' + v, 'Accept': 'application/vnd.github+json'}});
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      try { localStorage.setItem(GHK, v); } catch(x) {} m.textContent = ''; toast('Quick ticks are on ✓'); modeNote(); flushTicks();
+    } catch(e) { m.textContent = 'That key did not work (' + e.message + ') – check the repository and the Actions permission.'; }
+  };
 }
 const open = new Set();
 let tab = 'rel';
@@ -508,7 +571,7 @@ function renderApps(){
     const sc = a.current_score ?? a.score, cv = cvHref(a.cv_file);
     const live = a.posting_status === 'closed' ? '<span class="st bad">Closed</span>' : '<span class="st ok">Still open</span>';
     return `<tr><td class="mono co">${dubai(a.applied_at)}</td>
-      <td><div class="t">${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}</div><div class="co">${esc(a.company)}</div>${a.pending ? '<span class="chip warn">⏳ saving via Telegram</span>' : ''}
+      <td><div class="t">${a.url ? `<a href="${esc(a.url)}" target="_blank" rel="noopener">${esc(a.title)}</a>` : esc(a.title)}</div><div class="co">${esc(a.company)}</div>${a.pending ? '<span class="chip warn">⏳ confirmed at the next scan</span>' : ''}
         <div class="co">${peopleHtml({company_display: a.company})}</div></td>
       <td class="num">${sc != null ? `<span class="pill ${cls(sc)}">${(+sc).toFixed(1)}</span>` : '—'}</td>
       <td><select data-stage="${a.job_id}" ${D.online ? 'disabled' : ''} aria-label="Stage">${STAGES.map(([k,l]) => `<option value="${k}" ${a.status===k?'selected':''}>${l}</option>`).join('')}</select></td>
@@ -538,6 +601,7 @@ function show(t){ tab = t;
   if (t === 'rel' || t === 'all' || t === 'new') renderJobs(); if (t === 'co') { renderSeg(); renderCos(); } }
 document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('[role=tab]'); if (b) show(b.dataset.tab); });
 show('rel'); counts();
+if (D.cloud && ghToken() && tqGet().length) flushTicks();
 if (D.cloud) { const p = document.createElement('p'); p.className = 'foot';
   p.innerHTML = '<a href="#" id="lock">Lock this device</a> – forgets your key in this browser; open your private link to unlock again.';
   $('tab-log').parentNode.appendChild(p);

@@ -84,6 +84,38 @@ button{margin-top:10px;font:600 15px system-ui;padding:10px 14px;border:0;border
 </script></body></html>"""
 
 
+def apply_ticks(runs_json: Path, db) -> int:
+    """Ticks sent from the dashboard arrive as titles of 'JobRadar tick' runs: "tick <base64url(JR1 ciphertext)>".
+    Each payload is a JSON list of {"id": job_id, "on": bool, "st": stage}. Only payloads that decrypt with your key
+    are accepted (nobody else can forge one), and each run is applied once."""
+    import base64
+    from .applications import STATUSES, set_applied
+    key = parse_key()
+    runs = (json.loads(Path(runs_json).read_text(encoding="utf-8")) or {}).get("workflow_runs") or []
+    done = set(db.kv_get("ticks_done", []) or [])
+    n = 0
+    for run in sorted(runs, key=lambda r: r.get("created_at") or ""):
+        rid, title = str(run.get("id")), run.get("display_title") or ""
+        if rid in done or not title.startswith("tick "):
+            continue
+        done.add(rid)
+        try:
+            raw = title[5:].strip()
+            items = json.loads(decrypt(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)), key))
+        except Exception:
+            continue  # not ours / damaged → ignore
+        for it in items if isinstance(items, list) else []:
+            try:
+                st = it.get("st") if it.get("st") in STATUSES else None
+                set_applied(db, int(it["id"]), bool(it.get("on", True)), st)
+                n += 1
+            except (KeyError, ValueError, TypeError):
+                continue
+    db.kv_set("ticks_done", sorted(done, key=int)[-1000:])
+    db.commit()
+    return n
+
+
 def publish(out_dir: Path, settings, db, bot: str | None = None) -> dict:
     """Write the encrypted site: index.html (opener), data.bin (dashboard), cv/<token>.bin (tailored CVs)."""
     from .dashboard import dashboard_data, render

@@ -197,6 +197,13 @@ def cmd_cloud_publish(args):
     db.close()
 
 
+def cmd_cloud_ticks(args):
+    from .cloud import apply_ticks
+    settings, db, http, _ = _ctx(args)
+    print(f"ticks applied: {apply_ticks(Path(args.file), db)}")
+    db.close()
+
+
 def cmd_export(args):
     settings, db, _, _ = _ctx(args)
     rows = db.q("SELECT j.company_display, j.title, j.city, j.url, j.source, j.verification, j.first_seen_at, j.posted_at, "
@@ -273,6 +280,7 @@ def main(argv=None):
     s = sub.add_parser("cloud-restore"); s.add_argument("file"); s.set_defaults(fn=cmd_cloud_restore)
     s = sub.add_parser("cloud-save"); s.add_argument("file"); s.set_defaults(fn=cmd_cloud_save)
     s = sub.add_parser("cloud-publish"); s.add_argument("dir"); s.set_defaults(fn=cmd_cloud_publish)
+    s = sub.add_parser("cloud-ticks"); s.add_argument("file"); s.set_defaults(fn=cmd_cloud_ticks)
     s = sub.add_parser("export"); s.add_argument("--out", default="site/matches.csv"); s.set_defaults(fn=cmd_export)
     s = sub.add_parser("daemon"); s.add_argument("--tick", default=5); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_daemon)
     s = sub.add_parser("serve"); s.add_argument("--port", type=int, default=8765); s.add_argument("--open", action="store_true"); s.set_defaults(fn=cmd_serve)
