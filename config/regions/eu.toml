@@ -1,0 +1,43 @@
+# Settings for the Europe instance (JOBRADAR_REGION=eu). Merged over settings.toml – only differences live here.
+# Order = priority. Add "de" and then "uk" when those phases are switched on.
+
+[region]
+countries = ["nl"]
+# Gross monthly salary (EUR) a Dutch "highly skilled migrant" permit needs in 2026 (IND): 30+ = 5942, under 30 = 4357,
+# reduced criterion (recent graduate / orientation year) = 3122. Used only to flag low offers, never to hide jobs.
+nl_hsm_monthly_min = 4357
+de_blue_card_yearly_min = 45934   # 2026 reduced threshold (shortage occupations incl. IT); standard is 50700
+uk_skilled_worker_yearly_min = 41700
+
+[paths]
+database = "state/jobradar_eu.db"
+companies = "config/companies_eu.json"
+dashboard_dir = "site_eu"
+
+[locations]
+nl = 0.0
+de = 0.0
+uk = 0.3
+remote = 1.0
+hard_reject_outside_uae = true      # (name kept for compatibility) jobs outside the enabled countries are dropped
+
+[sources]
+alerts_only = []
+
+[polling]
+priority_1 = 30
+priority_2 = 60
+priority_3 = 120
+aggregator = 60
+min = 30
+max = 360
+
+[dashboard]
+title = "JobRadar · Europe (visa-sponsoring, English-speaking)"
+
+[notify]
+tag = "EU"                          # alerts start with the country flag, e.g. 🇳🇱
+digest_hour_dubai = 9
+
+[resume]
+output_dir = "output/resumes_eu"   # tailored CVs for Europe jobs, kept apart from the UAE ones
