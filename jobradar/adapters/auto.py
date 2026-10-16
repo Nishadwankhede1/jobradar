@@ -2,7 +2,7 @@
 
 Company entry: {"name": "Adyen", "ats": "auto", "ats_config": {"slugs": ["adyen"]}}   (slugs optional – derived from
 the name). Probes the documented public feeds of Greenhouse, Lever, Ashby, SmartRecruiters, Workable and Recruitee
-(EU hosts too). The hit is cached in the source's state; a miss is re-probed after a week. No scraping of HTML pages.
+(Lever EU host too; Greenhouse serves EU boards from its global API). The hit is cached in the source's state; a miss is re-probed after a week. No scraping of HTML pages.
 """
 from __future__ import annotations
 
@@ -31,7 +31,6 @@ def slug_candidates(name: str, extra: list[str] | None = None) -> list[str]:
 def _probes(slug: str, recruitee: bool = False):
     """(ats, ats_config, probe url, test(json) -> bool) for one slug."""
     yield "greenhouse", {"board": slug}, f"https://boards-api.greenhouse.io/v1/boards/{slug}/jobs", lambda d: isinstance(d.get("jobs"), list)
-    yield "greenhouse", {"board": slug, "region": "eu"}, f"https://boards-api.eu.greenhouse.io/v1/boards/{slug}/jobs", lambda d: isinstance(d.get("jobs"), list)
     yield "lever", {"site": slug}, f"https://api.lever.co/v0/postings/{slug}?mode=json&limit=1", lambda d: isinstance(d, list)
     yield "lever", {"site": slug, "region": "eu"}, f"https://api.eu.lever.co/v0/postings/{slug}?mode=json&limit=1", lambda d: isinstance(d, list)
     yield "ashby", {"board": slug}, f"https://api.ashbyhq.com/posting-api/job-board/{slug}", lambda d: isinstance(d.get("jobs"), list)
