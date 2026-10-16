@@ -219,7 +219,8 @@ BODY = r"""
       <label for="min">Min score <input type="range" id="min" min="0" max="10" step="0.5" value="7"><span class="mono" id="minv">7.0</span></label>
       <label for="inel"><input type="checkbox" id="inel"> show ineligible</label>
       <label for="sort">Sort <select id="sort"><option value="new">Newest posted first</option><option value="score">Best match first</option></select></label>
-      <label for="age">Posted <select id="age"><option value="0">any time</option><option value="7">last 7 days</option><option value="30">last 30 days</option><option value="90">last 90 days</option></select></label>
+      <label for="age" title="Date the job was published on the employer's site / job portal">Posted on portal <select id="age"><option value="0">any time</option><option value="today">today</option><option value="1">last 24 hours</option><option value="3">last 3 days</option><option value="7">last 7 days</option><option value="14">last 2 weeks</option><option value="30">last 30 days</option><option value="90">last 90 days</option></select></label>
+      <label for="undated" title="Some sources (e.g. LinkedIn alert e-mails) don't publish a posting date – include them using the date JobRadar first saw them"><input type="checkbox" id="undated"> include jobs with no portal date</label>
       <label for="leads"><input type="checkbox" id="leads" checked> include LinkedIn / e-mail leads</label>
       <label for="hideapp"><input type="checkbox" id="hideapp" checked> hide jobs I applied to</label>
       <span class="shown" id="jshown"></span>
@@ -276,6 +277,17 @@ function postedTs(j){
   return !isNaN(f) && f > baseline ? f : null;
 }
 const GST = 4 * 3600000;  // calendar days in Dubai time
+// the real posting date from the portal / employer site (null when the source doesn't publish one)
+function portalTs(j){ if (!j.posted_at) return null; const t = new Date(j.posted_at).getTime(); return isNaN(t) ? null : t; }
+// Posted filter: 'today' = since midnight Dubai time, N = last N days (1 = 24 h). Uses the portal date only, unless
+// "include jobs with no portal date" is ticked – then undated jobs count from when JobRadar first saw them.
+function postedOk(j, sel, undated){
+  if (!sel || sel === '0') return true;
+  let t = portalTs(j);
+  if (t == null) { if (!undated) return false; t = new Date(j.first_seen_at).getTime(); if (isNaN(t)) return false; }
+  if (sel === 'today') return Math.floor((t + GST) / DAY) === Math.floor((Date.now() + GST) / DAY);
+  return Date.now() - t <= +sel * DAY;
+}
 function relAge(t){ const d = Math.floor((Date.now() + GST) / DAY) - Math.floor((t + GST) / DAY);
   return d <= 0 ? 'today' : d === 1 ? 'yesterday' : d < 14 ? d + ' days ago' : d < 60 ? Math.round(d/7) + ' weeks ago'
     : d < 365 ? Math.round(d/30) + ' months ago' : 'over a year ago'; }
@@ -283,7 +295,7 @@ function ageHtml(j, full){
   const t = postedTs(j);
   if (t == null) return `<div class="age">date not published</div>${full ? '<div class="co mono">seen ' + dubai(j.first_seen_at) + '</div>' : ''}`;
   const d = (Date.now() - t) / DAY, c = d <= 7 ? 'fresh' : d > 45 ? 'stale' : '';
-  const src = j.posted_at ? 'Posted ' : 'First seen ';
+  const src = j.posted_at ? 'Posted ' : 'No portal date · seen ';
   return `<div class="age ${c}">${src}${relAge(t)}</div>${full ? '<div class="co mono">' + new Date(t).toLocaleDateString('en-GB',{day:'2-digit',month:'short',year:'numeric',timeZone:'Asia/Dubai'}) + '</div>' : ''}`;
 }
 $('subline').textContent = 'Tuned to a BI / Power BI / SQL / data analyst profile · scores every UAE vacancy from the companies below';
@@ -550,11 +562,11 @@ const open = new Set();
 let tab = 'rel';
 function renderJobs(){
   const q = $('q').value.trim().toLowerCase(), min = +$('min').value, inel = $('inel').checked, leads = $('leads').checked;
-  const maxAge = +$('age').value, byNew = $('sort').value === 'new', hideApp = $('hideapp').checked;
+  const ageSel = $('age').value, undated = $('undated').checked, byNew = $('sort').value === 'new', hideApp = $('hideapp').checked;
   $('minv').textContent = min.toFixed(1);
   const list = D.jobs.filter(j => j.score >= min && (inel || eligible(j)) && (leads || j.is_official)
     && (!hideApp || !appFor(j))
-    && (!maxAge || (postedTs(j) != null && Date.now() - postedTs(j) <= maxAge * DAY))
+    && postedOk(j, ageSel, undated)
     && (!q || (j.title+' '+j.company_display+' '+(j.matched_skills||[]).join(' ')).toLowerCase().includes(q)));
   list.sort(byNew ? (a, b) => ((postedTs(b) ?? -1) - (postedTs(a) ?? -1)) || (b.score - a.score)
                   : (a, b) => (b.score - a.score) || ((postedTs(b) ?? -1) - (postedTs(a) ?? -1)));
@@ -570,7 +582,7 @@ $('jobs').addEventListener('click', e => {
   const tr = e.target.closest('tr.job'); if(!tr || e.target.closest('a')) return;
   const id = +tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); renderJobs(); });
 $('jobs').addEventListener('keydown', e => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); e.target.closest('tr.job')?.click(); } });
-['q','min','inel','leads','sort','age','hideapp'].forEach(id => $(id).addEventListener('input', renderJobs));
+['q','min','inel','leads','sort','age','undated','hideapp'].forEach(id => $(id).addEventListener('input', renderJobs));
 
 /* ---------------- companies */
 const ATS = {greenhouse:'Greenhouse',lever:'Lever',ashby:'Ashby',smartrecruiters:'SmartRecruiters',workable:'Workable',workday:'Workday',
@@ -656,9 +668,9 @@ function show(t){ tab = t;
   document.querySelectorAll('[role=tab]').forEach(b => b.setAttribute('aria-selected', b.dataset.tab === t));
   $('tab-jobs').hidden = !(t === 'rel' || t === 'all' || t === 'new'); $('tab-co').hidden = t !== 'co'; $('tab-log').hidden = t !== 'log';
   $('tab-app').hidden = t !== 'app'; if (t === 'app') renderApps();
-  if (t === 'rel') { $('min').value = thr; $('inel').checked = false; $('sort').value = 'new'; $('age').value = '0'; }
-  if (t === 'new') { $('min').value = 0; $('inel').checked = false; $('sort').value = 'new'; $('age').value = '30'; }
-  if (t === 'all') { $('min').value = 0; $('inel').checked = true; $('sort').value = 'score'; $('age').value = '0'; }
+  if (t === 'rel') { $('min').value = thr; $('inel').checked = false; $('sort').value = 'new'; $('age').value = '0'; $('undated').checked = false; }
+  if (t === 'new') { $('min').value = 0; $('inel').checked = false; $('sort').value = 'new'; $('age').value = '30'; $('undated').checked = true; }
+  if (t === 'all') { $('min').value = 0; $('inel').checked = true; $('sort').value = 'score'; $('age').value = '0'; $('undated').checked = false; }
   if (t === 'rel' || t === 'all' || t === 'new') renderJobs(); if (t === 'co') { renderSeg(); renderCos(); } }
 document.querySelector('.tabs').addEventListener('click', e => { const b = e.target.closest('[role=tab]'); if (b) show(b.dataset.tab); });
 show('rel'); counts();
