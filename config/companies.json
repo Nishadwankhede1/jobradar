@@ -6093,14 +6093,14 @@
   "careers_url": "https://temenos.wd103.myworkdayjobs.com/en-US/Temenoscareers",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "workday",
+  "ats": "auto",
   "ats_config": {
-   "host": "temenos.wd103.myworkdayjobs.com",
-   "tenant": "temenos",
-   "site": "Temenoscareers"
+   "slugs": [
+    "temenos"
+   ]
   },
   "verified": true,
-  "verification_note": "Live test 14 Oct 2026: workday – 18 jobs, 0 in the UAE; no UAE location on the board today",
+  "verification_note": "17 Oct 2026: the Workday site (temenos.wd103) was switched off and now redirects to community.workday.com – JobRadar looks for its new public job feed automatically (re-checked weekly). Earlier: live test 14 Oct 2026, 18 jobs, 0 in the UAE",
   "live_uae_jobs": 0
  },
  {
