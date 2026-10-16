@@ -72,10 +72,16 @@ class Notifier:
         sent = failed = 0
         from ..applications import all_applications, match
         apps = all_applications(self.db)
+        # job-alert e-mail / aggregator leads: instant alert too (being early matters), but only fresh ones, never old backlog
+        leads_ok = bool(self.s.get("notify", "instant_alerts_for_leads", True))
+        lead_max_age = timedelta(hours=float(self.s.get("notify", "lead_alert_max_age_hours", 48)))
+        def lead_fresh(j):
+            t = parse_dt(j.get("first_seen_at"))
+            return leads_ok and t is not None and utcnow() - t <= lead_max_age
         for ch in self.channels:
             baseline_rows, n, channel_down = [], 0, False
             for j in self.candidates(thr):
-                if not j["is_official"] or self._already(j["id"], ch.name) or self._attempts(j["id"], ch.name) >= 5:
+                if (not j["is_official"] and not lead_fresh(j)) or self._already(j["id"], ch.name) or self._attempts(j["id"], ch.name) >= 5:
                     continue
                 if apps and match(j, apps):  # you already applied to this job (or the same role at this employer)
                     continue

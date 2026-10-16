@@ -57,12 +57,18 @@ def parse_employer_alert(html_body: str, entry: dict, sender: str = "") -> list[
     except Exception:
         return []
     rx = re.compile(entry["link_pattern"], re.I)
+    agency = bool(entry.get("agency"))
     out: dict[str, RawJob] = {}
     for it in p.items:
         href, text = it["href"], norm_space(it["text"])
         m = rx.search(href or "")
         if not m:
-            continue
+            # agencies often wrap links in click-tracking redirects: accept them only when the link text is a job title
+            if agency and re.match(r"https?://", href or "") and ROLE_NOUN.search(text or "") and 2 <= len(text.split()) <= 10 \
+                    and not BAD_ANCHOR.search(text):
+                m = re.match(r".+", href)
+            else:
+                continue
         url = "https://" + m.group(0).split("://")[-1] if "://" not in m.group(0) else m.group(0)
         url = re.sub(r"[?&](utm_[^=&]+|trk|src|source|ref)=[^&]*", "", url)
         if not text or BAD_ANCHOR.search(text) or len(text) < 4:
@@ -71,11 +77,20 @@ def parse_employer_alert(html_body: str, entry: dict, sender: str = "") -> list[
         jid = idm.group(1) if idm else url
         after = [a for a in it["after"] if a and not BAD_ANCHOR.search(a)]
         location = next((a for a in after if re.search(r"dubai|uae|emirates|abu dhabi|sharjah|remote", a, re.I)), "")
+        if agency:   # recruitment agency: the client is usually not named in the e-mail → unverified lead via agency
+            if not location or not re.search(r"dubai|uae|emirates|abu dhabi|sharjah|remote", f"{location} {text}", re.I):
+                location = location or "United Arab Emirates (agency alert)"
+            out.setdefault(jid, RawJob(source="email:" + entry["company_id"], external_id=jid, title=text, url=url, location=location,
+                                       description=None, company_name=entry["name"] + " (recruiter)", is_official=False,
+                                       is_agency=True, extra={"via": "agency alert e-mail", "sender": sender}))
+            continue
         out.setdefault(jid, RawJob(source="email:employer", external_id=jid, title=text, url=url, location=location,
                                    description=None, company_name=entry["name"], is_official=True,
                                    extra={"via": "employer alert e-mail", "sender": sender,
                                           "company_id": entry.get("company_id")}))
     return list(out.values())
+ROLE_NOUN = re.compile(r"\b(analyst|manager|engineer|developer|specialist|lead|consultant|executive|officer|head|director|"
+                       r"associate|scientist|architect|coordinator|administrator|controller|partner)\b", re.I)
 BAD_ANCHOR = re.compile(r"^(view|apply|see|show|more|unsubscribe|manage|search|jobs? alert|easy apply|save)\b", re.I)
 
 
@@ -140,7 +155,7 @@ def parse_alert_email(html_body: str, sender: str = "") -> list[RawJob]:
 
 
 def fetch_email_leads(db, days: int = 3, max_messages: int = 200) -> tuple[list[RawJob], str]:
-    host, user, pwd = os.environ.get("IMAP_HOST", "imap.gmail.com"), os.environ.get("IMAP_USER"), os.environ.get("IMAP_PASSWORD")
+    host, user, pwd = os.environ.get("IMAP_HOST") or "imap.gmail.com", os.environ.get("IMAP_USER"), os.environ.get("IMAP_PASSWORD")
     if not (user and pwd):
         return [], "IMAP_USER/IMAP_PASSWORD not set – e-mail alert ingestion disabled"
     leads: list[RawJob] = []

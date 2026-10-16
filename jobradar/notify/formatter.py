@@ -64,6 +64,8 @@ def location_label(job: dict) -> str:
 
 def job_alert(job: dict, sc: dict, kind: str = "alert") -> tuple[str, str]:
     header = {"alert": "NEW JOB FOUND", "update": "JOB UPDATED", "repost": "JOB REPOSTED"}.get(kind, "NEW JOB FOUND")
+    if not job.get("is_official") and len(job.get("description") or "") < 200:
+        header += " – TITLE ONLY (open the posting to check the details)"
     why = sc.get("reasons") or []
     gaps = sc.get("gaps") or []
     unc = sc.get("uncertainties") or []

@@ -224,5 +224,61 @@
   ],
   "link_pattern": "zohorecruit\\.com/jobs/Careers/\\d+[^\\s\\\"']*",
   "signup": "https://techcarrot.zohorecruit.com/jobs/Careers → job alerts"
+ },
+ {
+  "company_id": "michaelpage",
+  "name": "Michael Page",
+  "agency": true,
+  "senders": [
+   "michaelpage",
+   "michael page",
+   "pagegroup"
+  ],
+  "link_pattern": "michaelpage\\.ae/job-detail/[^\\s\\\"'?#]+",
+  "signup": "https://www.michaelpage.ae/ → Job alerts"
+ },
+ {
+  "company_id": "hays",
+  "name": "Hays",
+  "agency": true,
+  "senders": [
+   "hays.ae",
+   "hays.com",
+   "@hays"
+  ],
+  "link_pattern": "hays\\.ae/(?:en/)?job-detail/[^\\s\\\"'?#]+",
+  "signup": "https://www.hays.ae/ → Job alerts"
+ },
+ {
+  "company_id": "robertwalters",
+  "name": "Robert Walters",
+  "agency": true,
+  "senders": [
+   "robertwalters",
+   "robert walters"
+  ],
+  "link_pattern": "robertwalters\\.ae/[^\\s\\\"'?#]*jobs?[^\\s\\\"'?#]*",
+  "signup": "https://www.robertwalters.ae/ → Job alerts"
+ },
+ {
+  "company_id": "cooperfitch",
+  "name": "Cooper Fitch",
+  "agency": true,
+  "senders": [
+   "cooperfitch",
+   "cooper fitch"
+  ],
+  "link_pattern": "cooperfitch\\.ae/jobs?/[^\\s\\\"'?#]+",
+  "signup": "https://www.cooperfitch.ae/ → Job alerts"
+ },
+ {
+  "company_id": "charterhouse",
+  "name": "Charterhouse",
+  "agency": true,
+  "senders": [
+   "charterhouse"
+  ],
+  "link_pattern": "charterhouse\\.ae/jobs?/[^\\s\\\"'?#]+",
+  "signup": "https://www.charterhouse.ae/ → Job alerts"
  }
 ]

@@ -47,7 +47,7 @@ LEVELS = [("chief", r"\bchief\b|\bcxo\b|\bcdo\b"), ("vp", r"\bvp\b|vice presiden
           ("graduate", r"\bgraduate\b|\btrainee\b|\bentry[- ]level\b|\bfresh(er)?\b"), ("junior", r"\bjunior\b|\bjr\b"),
           ("associate", r"\bassociate\b"), ("analyst", r"analyst|developer|engineer|specialist|executive|consultant|officer")]
 
-SCORER_VERSION = "2026-10-15b"  # bump to force a one-off rescore of stored jobs after rule changes
+SCORER_VERSION = "2026-10-16a"  # bump to force a one-off rescore of stored jobs after rule changes
 
 # Titles that the taxonomy misses but that still look like analytics work (used to cap description-rescued roles)
 TITLE_DATA_RX = re.compile(r"analy|\bdata\b|insight|intelligence|reporting|\breports?\b|\bbi\b|\bmis\b|dashboard|"
@@ -56,6 +56,10 @@ TITLE_ADJ_RX = re.compile(r"performance(?! marketing)|planning|planner|forecast|
 TITLE_OFF_RX = re.compile(r"account executive|account manager|key accounts?|supervisor|\bsales (?:executive|manager|associate|"
                           r"supervisor|representative)|security|\bgrc\b|audit|controller|customer care|merchandiser|recruit|"
                           r"talent|people partner|health (?:&|and) safety|community manag|social media|product owner", re.I)
+# Titles that are clearly your kind of role even when only the title is known (job-alert e-mails, aggregators)
+STRONG_TITLE_RX = re.compile(r"power ?bi|\bbi\b|business intelligence|data analy|analytics engineer|reporting (?:analyst|specialist|lead|developer)|"
+                             r"data visuali[sz]|dashboard|insights? analyst|\bmis\b|tableau|qlik|looker|analytics (?:analyst|specialist|lead|consultant)|"
+                             r"data (?:&|and) analytics|sql (?:analyst|developer)|snowflake|microsoft fabric|\bfabric\b", re.I)
 FOREIGN_TITLE_RX = re.compile(r"\b(saudi(?: arabia)?|ksa|riyadh|jeddah|dammam|al ?khobar|neom|qatar|doha|kuwait|bahrain|manama|"
                               r"oman|muscat|egypt|cairo|jordan|amman|lebanon|beirut|turkey|istanbul|morocco|casablanca|"
                               r"pakistan|karachi|lahore|india|bengaluru|bangalore|mumbai|pune|hyderabad|chennai|london)\b", re.I)
@@ -224,7 +228,9 @@ def score_job(job: dict, company: dict, settings, llm_result: dict | None = None
     if fit >= 1.0:
         career += 1.0
     is_agency = bool(job.get("is_agency")) or detect_agency(desc, company)
-    if is_agency:
+    # a recruiter's title-only alert for a strong BI title is worth a ping like any other lead – no agency penalty there
+    agency_pen = is_agency and (has_desc or not STRONG_TITLE_RX.search(title))
+    if agency_pen:
         career -= 1.5
     career = max(1.0, min(10.0, career))
 
@@ -246,7 +252,7 @@ def score_job(job: dict, company: dict, settings, llm_result: dict | None = None
     sub = {k: round(max(0.0, min(10.0, v)), 2) for k, v in sub.items()}
     raw = sum(sub[k] * float(weights[k]) for k in weights)
     final = 1 + 0.9 * raw
-    if is_agency:
+    if agency_pen:
         final -= float(settings.get("scoring", "agency_penalty", 0.3))
     if not stage_a:
         final = min(final, 5.9)
@@ -268,6 +274,10 @@ def score_job(job: dict, company: dict, settings, llm_result: dict | None = None
             # official posting announced by the employer's own alert e-mail, site can't be read → still worth a ping
             caps.append((float(settings.get("scoring", "official_title_only_cap", 7.4)),
                          "title-only (from the employer's own alert e-mail) – open the posting to check details"))
+        elif STRONG_TITLE_RX.search(title) and not TITLE_OFF_RX.search(title):
+            # strong BI/analytics title from a job-alert e-mail → ping now (being early matters), labelled as title-only
+            caps.append((float(settings.get("scoring", "strong_title_only_cap", 7.4)),
+                         "title-only (from a job-alert e-mail) – strong title match; open the posting to check details"))
         else:
             caps.append((6.9, "title-only estimate (no full description)"))
     if lo is not None and lo - cand >= 3.0:
