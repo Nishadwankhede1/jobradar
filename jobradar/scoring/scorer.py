@@ -47,7 +47,7 @@ LEVELS = [("chief", r"\bchief\b|\bcxo\b|\bcdo\b"), ("vp", r"\bvp\b|vice presiden
           ("graduate", r"\bgraduate\b|\btrainee\b|\bentry[- ]level\b|\bfresh(er)?\b"), ("junior", r"\bjunior\b|\bjr\b"),
           ("associate", r"\bassociate\b"), ("analyst", r"analyst|developer|engineer|specialist|executive|consultant|officer")]
 
-SCORER_VERSION = "2026-10-16a"  # bump to force a one-off rescore of stored jobs after rule changes
+SCORER_VERSION = "2026-10-16b"  # bump to force a one-off rescore of stored jobs after rule changes
 
 # Titles that the taxonomy misses but that still look like analytics work (used to cap description-rescued roles)
 TITLE_DATA_RX = re.compile(r"analy|\bdata\b|insight|intelligence|reporting|\breports?\b|\bbi\b|\bmis\b|dashboard|"
@@ -56,6 +56,11 @@ TITLE_ADJ_RX = re.compile(r"performance(?! marketing)|planning|planner|forecast|
 TITLE_OFF_RX = re.compile(r"account executive|account manager|key accounts?|supervisor|\bsales (?:executive|manager|associate|"
                           r"supervisor|representative)|security|\bgrc\b|audit|controller|customer care|merchandiser|recruit|"
                           r"talent|people partner|health (?:&|and) safety|community manag|social media|product owner", re.I)
+# Data-operations titles (CRM data, campaign/marketing/sales ops, data management) – a fit when the ad is hands-on data work
+DATAOPS_TITLE_RX = re.compile(r"\bcrm\b|campaign operations|marketing operations|sales operations|revenue operations|\brevops\b|"
+                              r"business operations|operations analyst|database|master data|\bmdm\b|data steward|data operations|"
+                              r"data management|data quality|data governance|data coordinator", re.I)
+DATAOPS_SKILLS = {"sql", "python", "data_quality", "excel", "etl", "data_modeling", "reporting_automation", "data_warehouse"}
 # Titles that are clearly your kind of role even when only the title is known (job-alert e-mails, aggregators)
 STRONG_TITLE_RX = re.compile(r"power ?bi|\bbi\b|business intelligence|data analy|analytics engineer|reporting (?:analyst|specialist|lead|developer)|"
                              r"data visuali[sz]|dashboard|insights? analyst|\bmis\b|tableau|qlik|looker|analytics (?:analyst|specialist|lead|consultant)|"
@@ -263,6 +268,9 @@ def score_job(job: dict, company: dict, settings, llm_result: dict | None = None
             caps.append((6.4, "title is not an analytics role (description mentions data tools)"))
         elif TITLE_DATA_RX.search(title):
             caps.append((8.4, "analytics-adjacent title"))
+        elif DATAOPS_TITLE_RX.search(title) and signal >= 3 and len(DATAOPS_SKILLS & jd_skills.keys()) >= 2:
+            caps.append((float(settings.get("scoring", "dataops_cap", 7.2)),
+                         "data-operations / CRM title – adjacent to BI, check the ad"))
         elif TITLE_ADJ_RX.search(title):
             caps.append((7.4, "planning/performance title – check how much of the role is BI"))
         elif signal >= 5 and jd_skills.keys() & {"power_bi", "dax", "microsoft_fabric"}:
