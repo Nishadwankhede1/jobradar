@@ -56,7 +56,7 @@ def dashboard_data(db: Database, settings) -> dict:
         s.uncertainties, s.matched_skills, s.missing_skills, s.recommendation, s.confidence, s.method,
         (SELECT MAX(sent_at) FROM notifications n WHERE n.job_id=j.id AND n.status='sent') AS notified_at,
         c.name AS company_name, j.company_id, j.norm_title, j.fingerprint, r.file AS cv_file, r.coverage_before AS cv_before, r.coverage_after AS cv_after,
-        r.added AS cv_added, r.missing AS cv_missing"""
+        r.added AS cv_added, r.missing AS cv_missing, s.visa"""
     base = ("FROM jobs j JOIN scores s ON s.job_id=j.id LEFT JOIN companies c ON c.id=j.company_id "
             "LEFT JOIN resumes r ON r.job_id=j.id WHERE j.status='active' AND j.duplicate_of IS NULL")
     # best matches + the most recently posted jobs (so "Latest posts" isn't limited to high scorers)
@@ -79,7 +79,51 @@ def dashboard_data(db: Database, settings) -> dict:
     from .resume.myskills import get_user_skills
     return {"stats": coverage_stats(db, thr), "jobs": jobs, "sources": sources, "runs": runs, "applications": apps,
             "user_skills": [x["term"] for x in get_user_skills(db)],
-            "threshold": thr, "title": settings.get("dashboard", "title", "JobRadar")}
+            "threshold": thr, "title": settings.get("dashboard", "title", "JobRadar"), "region": region_info()}
+
+
+def region_info() -> dict:
+    """What the page needs to know about the watched market (UAE default, or the Europe instance)."""
+    from .region import enabled_countries, is_eu, place_label
+    if not is_eu():
+        return {"eu": False, "tz": "GST", "place": "the UAE"}
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    return {"eu": True, "tz": datetime.now(ZoneInfo("Europe/Amsterdam")).strftime("%Z"), "place": place_label(),
+            "countries": list(enabled_countries())}
+
+
+# Europe instance: UAE wording / time zone / LinkedIn geography swapped at render time (each must exist – see tests)
+EU_TEXT = [
+    ("<title>JobRadar Dubai</title>", "<title>JobRadar Europe</title>"),
+    ("<h1>Job<span>Radar</span> · Dubai</h1>", "<h1>Job<span>Radar</span> · Europe</h1>"),
+    ("All UAE jobs <span", "All jobs <span"),
+    ('<th class="num">UAE jobs</th>', '<th class="num">Jobs here</th>'),
+    ('"UAE jobs" is the count', '"Jobs here" is the count'),
+    ("timeZone:'Asia/Dubai'", "timeZone:'Europe/Amsterdam'"),
+    ("' GST · last feed check '", "' ' + R.tz + ' · last feed check '"),
+    ("scores every UAE vacancy from the companies below",
+     "English-speaking employers in ' + R.place + ' that can sponsor a visa (you: Indian passport, relocating from Dubai)"),
+    ("'employers in Dubai & the UAE'", "'employers watched in ' + R.place"),
+    ("['UAE jobs found'", "['Jobs found'"),
+    ("Who to contact (LinkedIn, UAE)", "Who to contact (LinkedIn, Netherlands)"),
+    ("const UAE = '%5B%22104305776%22%5D';", "const UAE = '%5B%22102890719%22%5D';"),
+    ("(Dubai OR UAE)", "(Netherlands OR Amsterdam)"),
+    # both pages live on the same site → keep this page's Applied state and tick queue separate from the UAE page
+    ("const LS = 'jobradar.applied.v1';", "const LS = 'jobradar.eu.applied.v1';"),
+    ("const PEND = 'jobradar.pending.v1';", "const PEND = 'jobradar.eu.pending.v1';"),
+    ("TQ = 'jobradar.tickq';", "TQ = 'jobradar.eu.tickq';"),
+    ("queueTick({id, on, st: status || null});", "queueTick({id, on, st: status || null, r: 'eu'});"),
+]
+
+
+def _eu_page(html_text: str) -> str:
+    from datetime import datetime
+    from zoneinfo import ZoneInfo
+    off = datetime.now(ZoneInfo("Europe/Amsterdam")).utcoffset().total_seconds() / 3600
+    for a, b in EU_TEXT + [("const GST = 4 * 3600000;", f"const GST = {off:g} * 3600000;")]:
+        html_text = html_text.replace(a, b)
+    return html_text
 
 
 STYLE = r"""
@@ -223,6 +267,9 @@ BODY = r"""
       <label for="undated" title="Some sources (e.g. LinkedIn alert e-mails) don't publish a posting date – include them using the date JobRadar first saw them"><input type="checkbox" id="undated"> include jobs with no portal date</label>
       <label for="leads"><input type="checkbox" id="leads" checked> include LinkedIn / e-mail leads</label>
       <label for="hideapp"><input type="checkbox" id="hideapp" checked> hide jobs I applied to</label>
+      <label for="visa" class="eu-only" title="Official sponsor = on the government register (NL: IND recognised sponsors). Ad = the job ad offers visa sponsorship.">Visa <select id="visa"><option value="">any</option><option value="likely">can sponsor (list or ad)</option><option value="register">official sponsor list</option><option value="ad">ad offers sponsorship</option></select></label>
+      <label for="reloc" class="eu-only"><input type="checkbox" id="reloc"> relocation offered</label>
+      <label for="payok" class="eu-only" title="Hide jobs whose stated pay is below the visa salary minimum"><input type="checkbox" id="payok"> pay meets visa minimum</label>
       <span class="shown" id="jshown"></span>
     </div>
     <div class="scroll"><table><thead><tr><th>Score</th><th>Role</th><th class="hide-sm">Where</th><th class="hide-sm">Posted</th><th>Advice</th><th title="Tick when you have applied">Applied</th></tr></thead>
@@ -264,6 +311,40 @@ const ago = ts => { if(!ts) return 'never'; const m = (Date.now()-new Date(ts))/
   return m < 90 ? Math.round(m)+' min ago' : m < 2880 ? Math.round(m/60)+' h ago' : Math.round(m/1440)+' d ago'; };
 const cls = s => s >= 9 ? 's9' : s >= 8 ? 's8' : s >= 7 ? 's7' : s >= 6 ? 's6' : 's0';
 const S = D.stats, thr = D.threshold;
+const R = D.region || {eu: false, tz: 'GST', place: 'the UAE'};
+if (!R.eu) document.querySelectorAll('.eu-only').forEach(e => e.remove());
+/* Europe: visa badges – official register, what the ad says, relocation, pay vs visa minimum */
+function visaChips(j){
+  const v = j.visa; if (!R.eu || !v) return '';
+  const c = [];
+  if (v.register) c.push('<span class="chip good" title="' + esc('On the IND public register of recognised sponsors: ' + v.register) + '">✓ Official sponsor</span>');
+  if (v.ad === 'offers') c.push('<span class="chip good" title="' + esc(v.ad_quote || '') + '">✓ Visa offered</span>');
+  if (v.ad === 'refuses') c.push('<span class="chip bad" title="' + esc(v.ad_quote || '') + '">✕ No sponsorship</span>');
+  if (!v.register && !v.ad) c.push('<span class="chip warn">Sponsor unknown</span>');
+  if (v.relocation) c.push('<span class="chip good">✈ Relocation</span>');
+  if (v.salary_ok === false) c.push('<span class="chip warn" title="Visa minimum ≈ €' + v.salary_floor + '/month">Pay below visa min</span>');
+  if (v.language && v.language !== 'en') c.push('<span class="chip bad">Ad not in English</span>');
+  return c.join('');
+}
+function visaDetail(j){
+  const v = j.visa; if (!R.eu || !v) return '';
+  const rows = [
+    ['Official sponsor list', v.register ? '✓ ' + v.register + ' (IND recognised sponsor)' : 'Not found on the IND list'],
+    ['Job ad', v.ad === 'offers' ? '✓ offers sponsorship – “' + (v.ad_quote||'') + '”' : v.ad === 'refuses' ? '✕ “' + (v.ad_quote||'') + '”' : 'Doesn\'t mention visas'],
+    ['Relocation', v.relocation ? '✓ mentioned in the ad' : 'Not mentioned'],
+    ['Pay vs visa minimum', v.salary_month ? '≈ €' + v.salary_month.toLocaleString() + '/month vs €' + (v.salary_floor||'?').toLocaleString() + (v.salary_ok ? ' ✓' : ' ⚠ below') : 'Pay not stated'],
+    ['Language of the ad', v.language === 'en' ? 'English' : v.language ? v.language.toUpperCase() : 'Too short to tell']];
+  return '<h3 style="margin-top:12px">Visa &amp; relocation</h3><ul>' + rows.map(([k, x]) => `<li><b>${esc(k)}:</b> ${esc(x)}</li>`).join('') + '</ul>';
+}
+function visaOk(j, sel, reloc, payok){
+  const v = j.visa || {};
+  if (sel === 'likely' && !(v.register || v.ad === 'offers')) return false;
+  if (sel === 'register' && !v.register) return false;
+  if (sel === 'ad' && v.ad !== 'offers') return false;
+  if (reloc && !v.relocation) return false;
+  if (payok && v.salary_ok === false) return false;
+  return true;
+}
 const eligible = j => !(j.hard_disqualifiers||[]).length && j.stage_a_pass;
 const relevant = D.jobs.filter(j => eligible(j) && j.score >= thr);
 /* posting age: the employer's own posted date; without one, JobRadar's first sighting counts only after the first
@@ -331,7 +412,7 @@ function rowHtml(j){
   if (ap && ap.self) chips.push('<span class="chip good">✓ Applied ' + esc(dubai(ap.a.applied_at).slice(0,6)) + '</span>');
   else if (ap) chips.push('<span class="chip warn" title="' + esc(ap.a.title + ' · ' + ap.a.company) + '">⚠ Already applied – same role (' + esc(dubai(ap.a.applied_at).slice(0,6)) + ')</span>');
   return `<tr class="job${ap ? ' done' : ''}" data-id="${j.id}" tabindex="0" aria-expanded="${open.has(j.id)}"><td><span class="pill ${hard.length?'s0':cls(j.score)}">${(+j.score).toFixed(1)}</span></td>
-   <td><div class="t">${esc(j.title)}</div><div class="co">${esc(j.company_display)}</div><div class="only-sm">${ageHtml(j)}</div>${chips.join('')}</td>
+   <td><div class="t">${esc(j.title)}</div><div class="co">${esc(j.company_display)}</div><div class="only-sm">${ageHtml(j)}</div>${chips.join('')}${visaChips(j)}</td>
    <td class="hide-sm co">${esc(j.city || j.location || '')}</td>
    <td class="hide-sm">${ageHtml(j, true)}</td>
    <td class="co">${esc(j.recommendation)}</td><td>${tickHtml(j)}</td></tr>`;
@@ -344,7 +425,7 @@ function detailHtml(j){
   return `<tr class="detail"><td colspan="6"><div class="dgrid">
     <div><h3>Score breakdown · ${esc(j.label)} · ${esc(j.confidence)} confidence</h3>${bars}</div>
     <div><h3>Why you match</h3>${li(j.reasons)}<h3 style="margin-top:12px">Skills you have</h3><div>${(j.matched_skills||[]).map(s=>`<span class="chip good">${esc(s)}</span>`).join('')||'<span class="co">—</span>'}</div></div>
-    <div><h3>Gaps</h3>${li(j.gaps)}<h3 style="margin-top:12px">Check before applying</h3>${li([...(j.hard_disqualifiers||[]), ...(j.uncertainties||[])])}</div>
+    <div><h3>Gaps</h3>${li(j.gaps)}<h3 style="margin-top:12px">Check before applying</h3>${li([...(j.hard_disqualifiers||[]), ...(j.uncertainties||[])])}${visaDetail(j)}</div>
     <div><h3>Apply</h3><a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">Open the job posting ↗</a><div class="co" style="margin-top:8px">${esc(j.evidence||'')}</div>
       ${cvHtml(j)}
       <h3 style="margin-top:14px">Who to contact (LinkedIn, UAE)</h3><div class="co">${peopleHtml(j)}</div></div>
@@ -563,10 +644,11 @@ let tab = 'rel';
 function renderJobs(){
   const q = $('q').value.trim().toLowerCase(), min = +$('min').value, inel = $('inel').checked, leads = $('leads').checked;
   const ageSel = $('age').value, undated = $('undated').checked, byNew = $('sort').value === 'new', hideApp = $('hideapp').checked;
+  const visaSel = $('visa')?.value || '', reloc = !!$('reloc')?.checked, payok = !!$('payok')?.checked;
   $('minv').textContent = min.toFixed(1);
   const list = D.jobs.filter(j => j.score >= min && (inel || eligible(j)) && (leads || j.is_official)
     && (!hideApp || !appFor(j))
-    && postedOk(j, ageSel, undated)
+    && postedOk(j, ageSel, undated) && (!R.eu || visaOk(j, visaSel, reloc, payok))
     && (!q || (j.title+' '+j.company_display+' '+(j.matched_skills||[]).join(' ')).toLowerCase().includes(q)));
   list.sort(byNew ? (a, b) => ((postedTs(b) ?? -1) - (postedTs(a) ?? -1)) || (b.score - a.score)
                   : (a, b) => (b.score - a.score) || ((postedTs(b) ?? -1) - (postedTs(a) ?? -1)));
@@ -582,7 +664,7 @@ $('jobs').addEventListener('click', e => {
   const tr = e.target.closest('tr.job'); if(!tr || e.target.closest('a')) return;
   const id = +tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); renderJobs(); });
 $('jobs').addEventListener('keydown', e => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); e.target.closest('tr.job')?.click(); } });
-['q','min','inel','leads','sort','age','undated','hideapp'].forEach(id => $(id).addEventListener('input', renderJobs));
+['q','min','inel','leads','sort','age','undated','hideapp','visa','reloc','payok'].forEach(id => $(id)?.addEventListener('input', renderJobs));
 
 /* ---------------- companies */
 const ATS = {greenhouse:'Greenhouse',lever:'Lever',ashby:'Ashby',smartrecruiters:'SmartRecruiters',workable:'Workable',workday:'Workday',
@@ -701,11 +783,14 @@ def render(data: dict, fragment: bool = False, mode: str | None = None, cloud: d
                 "applications": [{**a, "cv_file": None, "note": None} for a in data.get("applications", [])]}
     payload = json.dumps(data, ensure_ascii=False, default=str).replace("</", "<\\/")
     body = BODY.replace("__DATA__", payload)
+    style = STYLE
+    if (data.get("region") or {}).get("eu"):
+        body, style = _eu_page(body), _eu_page(STYLE)
     if fragment:  # for Artifact publishing (skeleton is added by the host)
-        return STYLE + body
+        return style + body
     return ('<!doctype html><html lang="en"><head><meta charset="utf-8">'
             '<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">'
-            + STYLE + "</head><body>" + body + "</body></html>")
+            + style + "</head><body>" + body + "</body></html>")
 
 
 def build_dashboard(settings, db: Database, fragment_path: str | None = None) -> str:

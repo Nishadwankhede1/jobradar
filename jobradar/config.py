@@ -78,6 +78,8 @@ class Settings:
 def load_settings() -> Settings:
     load_dotenv()
     raw = _load_toml("settings.toml")
+    from .region import deep_merge, overlay
+    raw = deep_merge(raw, {k: v for k, v in overlay().items() if k != "region"})  # EU instance: its own paths / rules
     # env overrides for the knobs people tweak most
     for env, (sec, key, typ) in {"NOTIFY_THRESHOLD": ("scoring", "notify_threshold", float),
                                  "IMMEDIATE_THRESHOLD": ("scoring", "immediate_threshold", float),

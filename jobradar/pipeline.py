@@ -256,7 +256,7 @@ def score_pending(db: Database, settings: Settings, llm: LLMAssessor | None = No
                              "matched_skills": sc["matched_skills"], "missing_skills": sc["missing_skills"],
                              "reasons": sc["reasons"], "gaps": sc["gaps"], "uncertainties": sc["uncertainties"],
                              "recommendation": sc["recommendation"], "confidence": sc["confidence"], "method": sc["method"],
-                             "scored_at": now_iso()}, ["job_id"])
+                             "visa": sc.get("visa"), "scored_at": now_iso()}, ["job_id"])
         n += 1
     db.upsert("kv", {"key": "scorer_version", "value": SCORER_VERSION}, ["key"])
     db.commit()
@@ -302,6 +302,10 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
     if os.environ.get("JOBRADAR_TELEGRAM_COMMANDS") == "1":  # cloud: apply /applied_… taps before scoring and alerts
         from .notify.commands import process_commands
         process_commands(db, http)
+    from .region import is_eu
+    if is_eu():  # Europe instance: keep the official sponsor register current (monthly list, checked weekly)
+        from .scoring.sponsor import refresh_registers
+        log.info("NL sponsor register: %s", refresh_registers(http, db))
     http.cache.update(db.load_http_cache())
     sources = due_sources(db, only, force)
     max_rt = float(settings.get("scan", "max_runtime_seconds", 420))

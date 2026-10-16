@@ -92,6 +92,7 @@ def apply_ticks(runs_json: Path, db) -> int:
     are accepted (nobody else can forge one), and each run is applied once."""
     import base64
     from .applications import STATUSES, set_applied
+    from .region import REGION
     key = parse_key()
     runs = (json.loads(Path(runs_json).read_text(encoding="utf-8")) or {}).get("workflow_runs") or []
     done = set(db.kv_get("ticks_done", []) or [])
@@ -110,6 +111,8 @@ def apply_ticks(runs_json: Path, db) -> int:
             if isinstance(it, dict) and it.get("sk"):  # "I know this skill" from a CV keyword chip
                 from .resume.myskills import set_user_skill
                 n += bool(set_user_skill(db, str(it["sk"]), bool(it.get("on", True))))
+                continue
+            if (it.get("r") or "uae") != REGION:  # an Applied tick from the other dashboard (UAE ↔ Europe)
                 continue
             try:
                 st = it.get("st") if it.get("st") in STATUSES else None

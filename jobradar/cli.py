@@ -256,6 +256,14 @@ def cmd_serve(args):
     serve(args.port, open_browser=args.open)
 
 
+def cmd_sponsors(args):
+    """Download the official sponsor register(s) now (Europe instance)."""
+    from .scoring.sponsor import refresh_registers
+    settings, db, http, _ = _ctx(args)
+    print(refresh_registers(http, db, max_age_days=0))
+    db.close()
+
+
 def cmd_add_company(args):
     settings = load_settings()
     path = settings.path("companies")
@@ -298,6 +306,7 @@ def main(argv=None):
     s = sub.add_parser("export"); s.add_argument("--out", default="site/matches.csv"); s.set_defaults(fn=cmd_export)
     s = sub.add_parser("daemon"); s.add_argument("--tick", default=5); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_daemon)
     s = sub.add_parser("serve"); s.add_argument("--port", type=int, default=8765); s.add_argument("--open", action="store_true"); s.set_defaults(fn=cmd_serve)
+    sub.add_parser("sponsors", help="refresh the NL recognised-sponsor register (Europe instance)").set_defaults(fn=cmd_sponsors)
     s = sub.add_parser("add-company")
     for a in ("--name", "--ats"):
         s.add_argument(a, required=True)

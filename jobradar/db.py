@@ -76,7 +76,7 @@ CREATE TABLE IF NOT EXISTS resumes (
 """
 
 JSON_COLS = {"ats_config", "job_families", "hard_disqualifiers", "subscores", "matched_skills", "missing_skills",
-             "reasons", "gaps", "uncertainties", "extra", "cv_added", "cv_missing", "cv_matched"}
+             "reasons", "gaps", "uncertainties", "extra", "visa", "cv_added", "cv_missing", "cv_matched"}
 
 
 def _row(r: sqlite3.Row | None) -> dict | None:
@@ -106,6 +106,8 @@ class Database:
         self.conn.execute("PRAGMA journal_mode=DELETE")  # single-file DB → safe to commit to git
         self.conn.execute("PRAGMA foreign_keys=OFF")
         self.conn.executescript(SCHEMA)
+        if "visa" not in {r[1] for r in self.conn.execute("PRAGMA table_info(scores)")}:
+            self.conn.execute("ALTER TABLE scores ADD COLUMN visa TEXT")  # Europe instance: sponsor / language badges
         self.conn.commit()
 
     # ---------------------------------------------------------------- generic
