@@ -66,10 +66,13 @@ def slug(s):
 
 
 def main():
+    import tomllib
     uae = json.loads((ROOT / "config" / "companies.json").read_text(encoding="utf-8"))
+    with open(ROOT / "config" / "settings.toml", "rb") as f:  # boards that can't be read automatically (see settings)
+        unreadable = set((tomllib.load(f).get("sources") or {}).get("alerts_only") or [])
     out, seen = [], set()
     for c in uae:
-        if c.get("ats") in GLOBAL_ATS and c.get("kind", "employer") == "employer":
+        if c.get("ats") in GLOBAL_ATS | {"auto"} and c.get("kind", "employer") == "employer" and c.get("id") not in unreadable:
             e = {k: c[k] for k in ("id", "name", "industry", "website", "careers_url", "ats", "ats_config") if k in c}
             e.update({"priority": 2, "kind": "employer", "verified": bool(c.get("verified")),
                       "verification_note": "Global ATS feed already verified for the UAE list – filtered to the enabled countries",
