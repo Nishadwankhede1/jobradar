@@ -14,6 +14,7 @@ import re
 from collections import Counter
 
 from ..location import classify
+from ..region import is_eu, place_label
 from ..util import normalize_title, tokens
 from . import eligibility as elig
 from .skills import HUMAN, RESP_NEG_RX, RESP_POS_RX, SKILLS, extract_skills, skill_counts
@@ -68,6 +69,14 @@ STRONG_TITLE_RX = re.compile(r"power ?bi|\bbi\b|business intelligence|data analy
 FOREIGN_TITLE_RX = re.compile(r"\b(saudi(?: arabia)?|ksa|riyadh|jeddah|dammam|al ?khobar|neom|qatar|doha|kuwait|bahrain|manama|"
                               r"oman|muscat|egypt|cairo|jordan|amman|lebanon|beirut|turkey|istanbul|morocco|casablanca|"
                               r"pakistan|karachi|lahore|india|bengaluru|bangalore|mumbai|pune|hyderabad|chennai|london)\b", re.I)
+
+# EU instance: places outside the enabled countries named in a title ("Data Analyst – Dubai", "BI Analyst (Warsaw)")
+EU_FOREIGN_TITLE_RX = re.compile(r"\b(dubai|abu dhabi|uae|saudi|riyadh|qatar|doha|india|bengaluru|bangalore|mumbai|pune|hyderabad|"
+                                 r"chennai|usa|us only|new york|san francisco|toronto|canada|singapore|australia|poland|warsaw|"
+                                 r"krakow|spain|madrid|barcelona|portugal|lisbon|france|paris|italy|milan|ireland|dublin|"
+                                 r"belgium|brussels|switzerland|zurich|sweden|stockholm|denmark|copenhagen|czech|prague|romania|"
+                                 r"bucharest|greece|athens|turkey|istanbul|london|berlin|munich|hamburg|frankfurt|amsterdam|"
+                                 r"rotterdam|manchester|edinburgh|germany|netherlands|united kingdom|\buk\b)\b", re.I)
 
 AGENCY_RX = re.compile(r"\b(our client|on behalf of (?:our|a) client|recruitment (?:agency|consultancy)|staffing|"
                        r"we are recruiting for|leading client|confidential client|headhunt)", re.I)
@@ -154,12 +163,12 @@ def score_job(job: dict, company: dict, settings, llm_result: dict | None = None
         stage_a, reason = False, f"Not an analytics role (only {signal} analytics signals)"
 
     e = elig.assess(title, desc, tier, profile, settings.raw.get("locations", {}), job.get("status", "active"))
-    foreign = FOREIGN_TITLE_RX.search(title)
+    foreign = (EU_FOREIGN_TITLE_RX if is_eu() else FOREIGN_TITLE_RX).search(title)
     if foreign and not t_loc["in_uae"]:  # e.g. "Developer (Saudi Arabia)" listed under a Dubai board location
         tier = "outside"
     if tier == "outside":
-        stage_a, reason = False, ("Title names a location outside the UAE (%s)" % foreign.group(0)) if foreign and not t_loc["in_uae"] \
-            else "Location is outside the UAE"
+        stage_a, reason = False, (f"Title names a location outside {place_label()} ({foreign.group(0)})") if foreign and not t_loc["in_uae"] \
+            else f"Location is outside {place_label()}"
 
     # ---------------------------------------------------------------- technical
     prof = profile["skills"]
@@ -295,7 +304,17 @@ def score_job(job: dict, company: dict, settings, llm_result: dict | None = None
     if tier == "uae_other":
         caps.append((float(settings.get("locations", "uae_other_max_score", 6.9)), "outside Dubai (other emirate)"))
     elif tier == "remote":
-        caps.append((7.4, "remote role – Dubai base unconfirmed"))
+        caps.append((7.4, "remote role – check it can employ you in an enabled country" if is_eu() else "remote role – Dubai base unconfirmed"))
+    visa = None
+    if is_eu():
+        from .sponsor import visa_info
+        visa = visa_info(job, company, tier)
+        if not visa["likely"] and has_desc:
+            # no sign the employer can sponsor you → dashboard + digest, not an instant alert
+            caps.append((float(settings.get("scoring", "no_sponsor_signal_cap", 6.9)),
+                         "no sign this employer sponsors visas – not on the sponsor register, ad doesn't offer it"))
+        if visa["salary_ok"] is False:  # the permit needs a minimum salary – below it the visa can't be approved
+            caps.append((6.9, f"stated pay (~€{visa['salary_month']:,}/month) is below the visa minimum (€{visa['salary_floor']:,})"))
     if neg_heavy:
         caps.append((6.9, f"core of the role is {neg_heavy[0]}"))
     if lvl in ("head", "director", "vp", "chief"):
@@ -361,5 +380,5 @@ def score_job(job: dict, company: dict, settings, llm_result: dict | None = None
         "matched_skills": [HUMAN[s] for s in matched], "missing_skills": [HUMAN[s] for s in missing + partial],
         "reasons": reasons[:4], "gaps": gaps[:6], "recommendation": rec, "confidence": confidence,
         "method": method, "is_agency": is_agency, "location_tier": tier, "city": loc["city"],
-        "required_years": lo, "level": lvl, "caps": [w for c, w in caps],
+        "required_years": lo, "level": lvl, "caps": [w for c, w in caps], "visa": visa,
     }

@@ -4,6 +4,7 @@ from __future__ import annotations
 import re
 from dataclasses import dataclass, field
 
+from ..region import is_eu, place_label
 from .skills import PREFERRED_MARKERS
 
 SENT_SPLIT = re.compile(r"(?<=[.;!?])\s+|\n+|•")
@@ -75,7 +76,7 @@ def assess(title: str, description: str, location_tier: str, profile: dict, loc_
     if status != "active":
         e.hard.append("Vacancy is closed / no longer listed")
     if location_tier == "outside" and loc_penalties.get("hard_reject_outside_uae", True):
-        e.hard.append("Location is outside the UAE")
+        e.hard.append(f"Location is outside {place_label()}")
     e.penalty += float(loc_penalties.get(location_tier, 0.0) or 0.0)
     if location_tier == "uae_other":
         e.preferences.append("Based outside Dubai (other emirate) – commute/relocation needed")
@@ -161,7 +162,10 @@ def assess(title: str, description: str, location_tier: str, profile: dict, loc_
         else:
             e.hard.append("Requires current student enrolment")
 
-    if VISA_NO_SPONSOR.search(text):
+    if is_eu():
+        from .sponsor import assess_eu
+        assess_eu(e, title or "", text, location_tier)
+    elif VISA_NO_SPONSOR.search(text):
         e.uncertain.append("Employer states no visa sponsorship / own visa required – confirm your visa status covers employment")
         e.penalty += 0.5
     if RESIDENT_REQ.search(text):
