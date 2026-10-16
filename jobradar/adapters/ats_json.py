@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import re
 
+from ..location import region_iso2
 from ..util import html_to_text, iso, parse_dt
 from .base import Adapter, AdapterResult, FetchContext, RawJob, register
 
@@ -115,14 +116,15 @@ class Workable(Adapter):
                 locs.append(", ".join(x for x in (l.get("city"), l.get("region"), l.get("country")) if x))
             loc = " | ".join(dict.fromkeys(x for x in locs if x))
             ccs = {(l.get("countryCode") or "").upper() for l in j.get("locations") or []}
-            if not (self.is_uae(loc) or "AE" in ccs):
+            mine = ccs & {c.upper() for c in region_iso2()}
+            if not (self.is_uae(loc) or mine):
                 continue
             jobs.append(RawJob(source=self.name, external_id=j.get("shortcode") or j.get("code") or j["url"],
                                title=j.get("title", ""), url=j.get("url") or j.get("application_url", ""), location=loc,
                                description=html_to_text(j.get("description")) or None,
                                employment_type=j.get("employment_type"), department=j.get("department"),
                                posted_at=_iso(j.get("published_on") or j.get("created_at")),
-                               country_code="AE" if "AE" in ccs else None))
+                               country_code=next(iter(mine)) if mine else None))
         return AdapterResult(jobs, complete=True)
 
 
@@ -235,7 +237,8 @@ class SmartRecruiters(Adapter):
         base = f"https://api.smartrecruiters.com/v1/companies/{cid}/postings"
         jobs, offset, total, details = [], 0, None, 0
         for _ in range(ctx.max_pages):
-            data = self.http.get_json(base, params={"country": "ae", "limit": 100, "offset": offset})
+            cc = region_iso2()
+            data = self.http.get_json(base, params={**({"country": cc[0]} if len(cc) == 1 else {}), "limit": 100, "offset": offset})
             total = data.get("totalFound", 0)
             page = data.get("content", [])
             for p in page:

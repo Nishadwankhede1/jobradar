@@ -3,7 +3,7 @@ from __future__ import annotations
 
 import re
 
-from ..location import UAE_RX
+from ..location import region_query, region_rx
 from ..util import html_to_text, iso, parse_dt
 from .base import Adapter, AdapterResult, FetchContext, RawJob, register
 
@@ -28,7 +28,7 @@ def find_uae_facets(facets) -> tuple[str | None, list[str], bool]:
                 for v in vals:
                     if isinstance(v, dict) and v.get("values"):
                         walk([v], p)
-                    elif isinstance(v, dict) and v.get("id") and UAE_RX.search(v.get("descriptor", "")) and p \
+                    elif isinstance(v, dict) and v.get("id") and region_rx().search(v.get("descriptor", "")) and p \
                             and re.search(r"loc|country|region", p, re.I):
                         found.setdefault(p, []).append((v["id"], int(v.get("count") or 0)))
 
@@ -51,9 +51,9 @@ class Workday(Adapter):
         if param:
             applied, search, filtered = {param: ids}, "", True
         elif saw_loc:
-            return AdapterResult([], complete=True, notes="no UAE location facet → 0 UAE jobs")
+            return AdapterResult([], complete=True, notes="no location facet for the watched countries → 0 jobs")
         else:
-            applied, search, filtered = {}, "United Arab Emirates", False
+            applied, search, filtered = {}, region_query(), False
 
         postings, offset, total = [], 0, None
         for _ in range(ctx.max_pages):
@@ -74,7 +74,7 @@ class Workday(Adapter):
                 continue
             loc_text = p.get("locationsText") or ""
             ext_id = path.rsplit("_", 1)[-1] if "_" in path else path  # stable across runs
-            if not filtered and not UAE_RX.search(loc_text) and not re.search(r"\d+ locations", loc_text, re.I):
+            if not filtered and not region_rx().search(loc_text) and not re.search(r"\d+ locations", loc_text, re.I):
                 continue
             desc, posted, url, emp, loc = None, None, f"https://{host}/en-US/{site}{path}", None, loc_text
             if self.need_detail(ctx, ext_id, None) and details < ctx.max_detail_fetches:
@@ -83,7 +83,7 @@ class Workday(Adapter):
                 info = d.get("jobPostingInfo") or {}
                 locs = [info.get("location") or ""] + list(info.get("additionalLocations") or [])
                 loc = " | ".join(x for x in locs if x) or loc_text
-                if not filtered and not UAE_RX.search(loc + " " + ((info.get("country") or {}).get("descriptor") or "")):
+                if not filtered and not region_rx().search(loc + " " + ((info.get("country") or {}).get("descriptor") or "")):
                     continue
                 desc = html_to_text(info.get("jobDescription"))
                 posted = iso(parse_dt(info.get("startDate"))) or iso(parse_dt(info.get("postedOn")))
