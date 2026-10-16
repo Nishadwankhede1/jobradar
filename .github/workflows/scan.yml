@@ -4,6 +4,7 @@
 #  - database + tailored CVs: one encrypted file (vault.bin) kept in the Actions cache, backed up to the `state` branch
 #  - dashboard: encrypted site on GitHub Pages; your private link carries the key after '#'
 name: JobRadar scan
+run-name: ${{ github.event.inputs.quick == 'true' && 'JobRadar quick CV rebuild' || 'JobRadar scan' }}
 
 on:
   schedule:
@@ -23,9 +24,9 @@ on:
         type: boolean
         default: false
 
-concurrency:
-  group: jobradar-state
-  cancel-in-progress: false
+# GitHub's timer is best-effort and often fires only every few hours, so each scan also starts the next one
+# ~15 minutes after it began (job `next`). Turn the chain off with the repository variable SCAN_CHAIN = off;
+# change the gap with SCAN_GAP_MINUTES (default 15). The timer above stays as a backup that restarts the chain.
 
 permissions:
   contents: write
@@ -37,6 +38,9 @@ jobs:
   scan:
     runs-on: ubuntu-latest
     timeout-minutes: 40
+    concurrency:              # one scan at a time (they share the encrypted database)
+      group: jobradar-state
+      cancel-in-progress: false
     outputs:
       published: ${{ steps.pub.outputs.published }}
     env:
@@ -183,7 +187,51 @@ jobs:
     needs: scan
     if: always() && needs.scan.outputs.published == 'true'
     runs-on: ubuntu-latest
+    concurrency:
+      group: jobradar-pages
+      cancel-in-progress: false
     environment:
       name: github-pages
     steps:
       - uses: actions/deploy-pages@v4
+
+  next:
+    needs: [scan, deploy]
+    if: always() && github.event.inputs.quick != 'true' && vars.SCAN_CHAIN != 'off'
+    runs-on: ubuntu-latest
+    timeout-minutes: 20
+    permissions:
+      actions: write
+    steps:
+      - name: Start the next scan ~15 minutes after this one began
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GAP: ${{ vars.SCAN_GAP_MINUTES || '15' }}
+          REF: ${{ github.ref_name }}
+        shell: python
+        run: |
+          import json, os, time, urllib.request
+          from datetime import datetime
+          api = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions"
+          me = int(os.environ["GITHUB_RUN_ID"])
+          def call(path, data=None):
+              req = urllib.request.Request(api + path, data=json.dumps(data).encode() if data else None,
+                                           method="POST" if data else "GET",
+                                           headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                                                    "Accept": "application/vnd.github+json"})
+              with urllib.request.urlopen(req, timeout=30) as r:
+                  body = r.read()
+                  return json.loads(body) if body else {}
+          started = datetime.fromisoformat(call(f"/runs/{me}")["run_started_at"].replace("Z", "+00:00")).timestamp()
+          wait = min(900, started + max(5, int(os.environ["GAP"] or 15)) * 60 - time.time())
+          if wait > 0:
+              print(f"next scan in {int(wait)} s"); time.sleep(wait)
+          # one chain only: hand over to a waiting scan, or to a newer one that is already running
+          for status in ("queued", "waiting", "pending", "requested", "in_progress"):
+              for r in call(f"/workflows/scan.yml/runs?status={status}&per_page=30").get("workflow_runs", []):
+                  if r["id"] == me or "quick" in (r.get("display_title") or "").lower():
+                      continue
+                  if status != "in_progress" or r["id"] > me:
+                      print(f"scan {r['id']} is {status} - it continues the chain"); raise SystemExit(0)
+          call("/workflows/scan.yml/dispatches", {"ref": os.environ["REF"]})
+          print("next scan started")
