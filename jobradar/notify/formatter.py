@@ -2,8 +2,10 @@
 from __future__ import annotations
 
 import html
+import os
 from datetime import datetime, timedelta, timezone
 
+from ..region import COUNTRY_FLAGS, COUNTRY_NAMES, is_eu, place_label
 from ..util import parse_dt
 
 DUBAI = timezone(timedelta(hours=4))
@@ -14,10 +16,42 @@ def _e(s) -> str:
 
 
 def _dubai(ts: str | None, with_time=True) -> str:
+    """Local time of the watched market: Dubai (GST) or, for the Europe instance, Amsterdam (CET/CEST)."""
     dt = parse_dt(ts)
     if not dt:
         return ""
+    if is_eu():
+        from zoneinfo import ZoneInfo
+        return dt.astimezone(ZoneInfo("Europe/Amsterdam")).strftime("%d %b %Y %H:%M %Z" if with_time else "%d %b %Y")
     return dt.astimezone(DUBAI).strftime("%d %b %Y %H:%M GST" if with_time else "%d %b %Y")
+
+
+def eu_country(job: dict) -> str:
+    """'nl' | 'de' | 'uk' for a Europe job (from its location), '' otherwise."""
+    if not is_eu():
+        return ""
+    from ..location import classify
+    return classify(job.get("location") or job.get("city") or "").get("country") or ""
+
+
+def visa_line(v: dict | None) -> str:
+    """One line summarising the sponsor badges (Europe instance)."""
+    if not v:
+        return ""
+    bits = []
+    if v.get("register"):
+        bits.append(f"✅ official IND sponsor ({v['register']})")
+    if v.get("ad") == "offers":
+        bits.append("✅ ad offers visa sponsorship")
+    elif v.get("ad") == "refuses":
+        bits.append("⛔ ad says no sponsorship")
+    if v.get("relocation"):
+        bits.append("✈️ relocation support")
+    if v.get("salary_ok") is False:
+        bits.append(f"⚠️ pay ~€{v['salary_month']:,}/month is below the visa minimum (€{v['salary_floor']:,})")
+    elif v.get("salary_ok"):
+        bits.append(f"pay ~€{v['salary_month']:,}/month meets the visa minimum")
+    return " · ".join(bits) or "no sponsor signal yet – ask the recruiter before applying"
 
 
 def employment_label(job: dict) -> str:
@@ -57,6 +91,10 @@ def posted_label(job: dict) -> str:
 
 def location_label(job: dict) -> str:
     city = job.get("city") or ""
+    if is_eu():
+        c = eu_country(job)
+        name = COUNTRY_NAMES.get(c, "")
+        return f"{city}, {name}" if city and name and city != name else (name or job.get("location") or city)
     if city in ("Dubai", "Abu Dhabi", "Sharjah", "Ajman", "Fujairah"):
         return f"{city}, UAE"
     return job.get("location") or "UAE"
@@ -64,6 +102,8 @@ def location_label(job: dict) -> str:
 
 def job_alert(job: dict, sc: dict, kind: str = "alert") -> tuple[str, str]:
     header = {"alert": "NEW JOB FOUND", "update": "JOB UPDATED", "repost": "JOB REPOSTED"}.get(kind, "NEW JOB FOUND")
+    if is_eu():
+        header = f"{COUNTRY_FLAGS.get(eu_country(job), '🇪🇺')} {header}"
     if not job.get("is_official") and len(job.get("description") or "") < 200:
         header += " – TITLE ONLY (open the posting to check the details)"
     why = sc.get("reasons") or []
@@ -80,8 +120,11 @@ def job_alert(job: dict, sc: dict, kind: str = "alert") -> tuple[str, str]:
         (f"<b>Posted:</b> {_e(posted_label(job))}", f"Posted: {posted_label(job)}"),
         (f"<b>Source:</b> {_e(source_label(job))}{' · via recruitment agency' if job.get('is_agency') else ''}",
          f"Source: {source_label(job)}{' · via recruitment agency' if job.get('is_agency') else ''}"),
-        ("", ""), ("<b>Why You Match:</b>", "Why You Match:"),
     ]
+    if is_eu():
+        vl = visa_line(sc.get("visa"))
+        lines.append((f"<b>Visa:</b> {_e(vl)}", f"Visa: {vl}"))
+    lines += [("", ""), ("<b>Why You Match:</b>", "Why You Match:")]
     lines += [(f"• {_e(r)}", f"- {r}") for r in why[:3]] or [("• (see description)", "- (see description)")]
     lines += [("", ""), ("<b>Potential Gaps:</b>", "Potential Gaps:")]
     lines += [(f"• {_e(g)}", f"- {g}") for g in gaps[:3]] or [("• None significant detected", "- None significant detected")]
@@ -90,8 +133,10 @@ def job_alert(job: dict, sc: dict, kind: str = "alert") -> tuple[str, str]:
         lines += [(f"• {_e(u)}", f"- {u}") for u in unc[:3]]
     lines += [("", ""), (f"<b>Recommendation:</b> {_e(sc.get('recommendation'))}", f"Recommendation: {sc.get('recommendation')}"),
               ("", ""), ("<b>Application Link:</b>", "Application Link:"), (_e(job.get("url")), job.get("url") or "")]
-    if job.get("id"):
+    if job.get("id") and (not is_eu() or os.environ.get("JOBRADAR_TELEGRAM_COMMANDS") == "1"):
         lines += [("", ""), (f"Applied? Tap /applied_{job['id']}", f"Applied? Send /applied_{job['id']}")]
+    elif job.get("id"):  # Europe alerts through the UAE bot: its commands would hit the UAE list → tick on the dashboard
+        lines += [("", ""), ("Applied? Tick it on your Europe dashboard.", "Applied? Tick it on your Europe dashboard.")]
     return "\n".join(h for h, _ in lines), "\n".join(p for _, p in lines)
 
 
@@ -121,8 +166,8 @@ def digest(date_label: str, rows: list[dict], leads: list[dict], health: dict) -
 
 
 def baseline(company: str, rows: list[dict], total: int) -> tuple[str, str]:
-    h = [f"<b>Initial scan – {_e(company)}</b>", f"{total} UAE vacancies indexed; top matches:"]
-    p = [f"Initial scan – {company}", f"{total} UAE vacancies indexed; top matches:"]
+    h = [f"<b>Initial scan – {_e(company)}</b>", f"{total} vacancies in {place_label()} indexed; top matches:"]
+    p = [f"Initial scan – {company}", f"{total} vacancies in {place_label()} indexed; top matches:"]
     for r in rows:
         h.append(f"• <b>{r['score']:.1f}</b> {_e(r['title'])}\n  {_e(r['url'])}")
         p.append(f"- {r['score']:.1f} {r['title']}\n  {r['url']}")

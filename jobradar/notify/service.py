@@ -42,7 +42,7 @@ class Notifier:
     def candidates(self, min_score: float) -> list[dict]:
         rows = self.db.q(
             "SELECT j.*, s.score, s.label, s.reasons, s.gaps, s.uncertainties, s.recommendation, s.confidence, "
-            "s.hard_disqualifiers, s.stage_a_pass FROM jobs j JOIN scores s ON s.job_id = j.id "
+            "s.hard_disqualifiers, s.stage_a_pass, s.visa FROM jobs j JOIN scores s ON s.job_id = j.id "
             "WHERE j.status='active' AND j.duplicate_of IS NULL AND s.stage_a_pass=1 AND s.score >= ? "
             "ORDER BY s.score DESC", (min_score,))
         return [r for r in rows if not r["hard_disqualifiers"]]
