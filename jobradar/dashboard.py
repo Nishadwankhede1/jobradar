@@ -76,7 +76,9 @@ def dashboard_data(db: Database, settings) -> dict:
     runs = db.q("SELECT * FROM scan_runs ORDER BY id DESC LIMIT 30")
     from .applications import all_applications
     apps = all_applications(db)
+    from .resume.myskills import get_user_skills
     return {"stats": coverage_stats(db, thr), "jobs": jobs, "sources": sources, "runs": runs, "applications": apps,
+            "user_skills": [x["term"] for x in get_user_skills(db)],
             "threshold": thr, "title": settings.get("dashboard", "title", "JobRadar")}
 
 
@@ -131,6 +133,7 @@ tr.job:hover td{background:var(--sunk)}
 .s9{background:var(--accent);color:var(--accent-ink)} .s8{background:var(--accent-soft);color:var(--accent)}
 .s7{background:var(--good-soft);color:var(--good)} .s6{background:var(--warn-soft);color:var(--warn)} .s0{background:var(--sunk);color:var(--muted)}
 .chip{display:inline-block;font-size:11px;padding:2px 7px;border-radius:3px;margin:2px 4px 0 0;background:var(--sunk);color:var(--muted);white-space:nowrap}
+button.chip.sk{border:1px dashed currentColor;cursor:pointer;font:inherit;font-size:11px} button.chip.sk:hover{filter:brightness(1.15)}
 .chip.bad{background:var(--bad-soft);color:var(--bad)} .chip.good{background:var(--good-soft);color:var(--good)} .chip.warn{background:var(--warn-soft);color:var(--warn)}
 .t{font-weight:600} .co{color:var(--muted);font-size:13px}
 a{color:var(--accent);overflow-wrap:anywhere}
@@ -353,8 +356,53 @@ function cvHtml(j){
   return `<h3 style="margin-top:14px">Tailored CV · ATS keywords ${j.cv_before}% → <b>${j.cv_after}%</b></h3>
     ${cvHref(j.cv_file) ? `<a class="btn ghost" href="${esc(cvHref(j.cv_file))}" data-name="${esc(cvName(j.company_display, j.title))}" target="_blank" rel="noopener">Download tailored CV (PDF) ↗</a>`
       : '<div class="co">Saved on your PC in the output\\resumes folder.</div>'}
-    ${(j.cv_added||[]).length ? '<div class="co" style="margin-top:6px">Added (you have these): </div>' + chips(j.cv_added, 'good') : ''}
-    ${(j.cv_missing||[]).length ? '<div class="co" style="margin-top:6px">Not in your CV – not added: </div>' + chips(j.cv_missing, 'warn') : ''}`;
+    ${skillChips(j, chips)}`;
+}
+/* ---------------- "I know this": click a keyword under "Not in your CV" and it is added to your tailored CVs
+   (this one and every other job that asks for it). Click it again under "Added" to take it back out. */
+const SKP = 'jobradar.skills.v1';
+const USK = new Set((D.user_skills || []).map(s => String(s).toLowerCase()));
+function skGet(){ try { return JSON.parse(localStorage.getItem(SKP) || '{}') || {}; } catch(e) { return {}; } }
+function skSet(o){ try { localStorage.setItem(SKP, JSON.stringify(o)); } catch(e) {} }
+{ const o = skGet(), keep = {};   // forget changes a scan has already applied
+  for (const [k, p] of Object.entries(o)) if (p && Date.now() - p.at < 6 * 3600e3 && p.on !== USK.has(k)) keep[k] = p;
+  skSet(keep); }
+const canSkill = () => !D.online && (D.cloud || API);
+const known = t => { const p = skGet()[t.toLowerCase()]; return p ? p.on : USK.has(t.toLowerCase()); };
+function skillChips(j, chips){
+  const pend = skGet(), isP = t => !!pend[t.toLowerCase()];
+  const all = [...(j.cv_added || []), ...(j.cv_missing || [])], seen = new Set();
+  const added = [], missing = [];
+  for (const t of all) { const k = t.toLowerCase(); if (seen.has(k)) continue; seen.add(k);
+    const wasAdded = (j.cv_added || []).includes(t);
+    if (isP(t) ? pend[k].on : wasAdded) added.push(t); else missing.push(t); }
+  if (!canSkill()) return (added.length ? '<div class="co" style="margin-top:6px">Added (you have these): </div>' + chips(added, 'good') : '')
+    + (missing.length ? '<div class="co" style="margin-top:6px">Not in your CV – not added: </div>' + chips(missing, 'warn') : '');
+  const btn = (t, on) => { const mine = USK.has(t.toLowerCase()) || isP(t);
+    if (on && !mine) return `<span class="chip good">${esc(t)}</span>`;
+    return `<button type="button" class="chip ${on ? 'good' : 'warn'} sk" data-sk="${esc(t)}" data-job="${j.id}" data-on="${on ? 0 : 1}"
+      title="${on ? 'Remove it from my CVs' : 'I know this – add it to my CVs'}">${isP(t) ? '⏳ ' : on ? '' : '+ '}${esc(t)}${on ? ' ×' : ''}</button>`; };
+  const busy = all.some(isP);
+  return (busy ? '<div class="note" style="margin-top:8px">⏳ Updating your CV with these changes – ready in about 5 minutes. Reload the page then to download it (the button above still gives the previous version).</div>' : '')
+    + (added.length ? '<div class="co" style="margin-top:6px">Added (you have these): </div>' + added.map(t => btn(t, true)).join('') : '')
+    + (missing.length ? '<div class="co" style="margin-top:6px">Not in your CV – click the ones you really know to add them: </div>' + missing.map(t => btn(t, false)).join('') : '');
+}
+async function setSkill(term, jobId, on){
+  if (API) {
+    try { const r = await fetch('/api/skill', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-JobRadar': '1'},
+            body: JSON.stringify({term, on, job_id: jobId})});
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json(); USK.clear(); (d.user_skills || []).forEach(s => USK.add(s.toLowerCase()));
+      const j = D.jobs.find(x => x.id === jobId); if (j && d.cv) Object.assign(j, d.cv);
+      refreshAll(); toast(`${term} ${on ? 'added to' : 'removed from'} your CV ✓ – download it again`);
+    } catch(e) { toast('Could not save that (' + e.message + ')', true); }
+    return;
+  }
+  const o = skGet(), k = term.toLowerCase();
+  if (on === USK.has(k)) delete o[k]; else o[k] = {on, at: Date.now()};
+  skSet(o); refreshAll();
+  queueTick({sk: term, on});
+  if (ghToken()) toast(`${term} ${on ? 'added' : 'removed'} – your CVs are being rebuilt (about 5 minutes)`);
 }
 /* ---------------- applied jobs: saved in the database through the local server (run_jobradar.bat / open_dashboard.bat);
    when the page is opened as a plain file, ticks are kept in this browser's storage for that file only */
@@ -447,9 +495,10 @@ async function sealTick(items){
   return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 let tqTimer = null;
+const tkKey = x => x.sk ? 'sk:' + String(x.sk).toLowerCase() : x.id;
 function queueTick(item){
-  const q = tqGet().filter(x => x.id !== item.id); q.push(item); tqSet(q);
-  if (!ghToken()) { show('app'); toast('Saved on this device – connect quick ticks to save it for good', true); return; }
+  const q = tqGet().filter(x => tkKey(x) !== tkKey(item)); q.push(item); tqSet(q);
+  if (!ghToken()) { if (!item.sk) show('app'); toast('Saved on this device – connect quick ticks (Applied tab) to save it for good', true); return; }
   clearTimeout(tqTimer); tqTimer = setTimeout(flushTicks, 1200);
 }
 async function flushTicks(){
@@ -463,7 +512,13 @@ async function flushTicks(){
         body: JSON.stringify({ref: 'main', inputs: {p}})});
       if (r.status !== 204) throw new Error('HTTP ' + r.status);
     }
-    tqSet([]); toast('Saved ✓');
+    tqSet([]);
+    if (q.some(x => x.sk)) {   // skills changed → rebuild the CVs now instead of waiting for the next scan
+      try { await fetch(`https://api.github.com/repos/${owner}/${repo}/actions/workflows/scan.yml/dispatches`, {method: 'POST',
+          headers: {'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'},
+          body: JSON.stringify({ref: 'main', inputs: {quick: 'true'}})}); } catch(x) {}   // if this fails, the next scan rebuilds them
+      toast('Saved ✓ – your CV will be ready in about 5 minutes');
+    } else toast('Saved ✓');
   } catch(e) { toast(e.message === 'nokey' ? 'Open the dashboard from your private link first' : 'Could not save the tick (' + e.message + ') – check your quick-tick key', true); }
 }
 function tickPanel(el){
@@ -508,6 +563,8 @@ function renderJobs(){
     : '<tr><td colspan="6" class="empty">No jobs match these filters. Lower the minimum score, or wait for the next scan.</td></tr>';
 }
 $('jobs').addEventListener('click', e => {
+  const sk = e.target.closest('button.sk');
+  if (sk) { e.stopPropagation(); setSkill(sk.dataset.sk, +sk.dataset.job, sk.dataset.on === '1'); return; }
   const tk = e.target.closest('[data-tick]');
   if (tk) { e.stopPropagation(); const id = +tk.dataset.tick; setApplied(id, tk.getAttribute('aria-pressed') !== 'true'); return; }
   const tr = e.target.closest('tr.job'); if(!tr || e.target.closest('a')) return;

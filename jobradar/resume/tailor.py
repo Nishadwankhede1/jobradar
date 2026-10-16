@@ -127,8 +127,10 @@ def _present(term: str, text: str) -> bool:
     return _literal(term, text) or (len(_norm(term)) >= 3 and _norm(term) in _norm(text))
 
 
-def tailor(master: dict, job: dict, proficiency: dict) -> tuple[dict, dict]:
-    """Return (tailored_cv, report). `job` needs title + description."""
+def tailor(master: dict, job: dict, proficiency: dict, user_skills: set | None = None) -> tuple[dict, dict]:
+    """Return (tailored_cv, report). `job` needs title + description. `user_skills`: lower-case terms / skill ids you
+    confirmed in the dashboard (resume/myskills.py) – they count as skills you have."""
+    us = {str(x).lower() for x in (user_skills or ())}
     cv = copy.deepcopy(master)
     title, desc = job.get("title") or "", job.get("description") or ""
     jd = f"{title}\n{desc}"
@@ -144,10 +146,13 @@ def tailor(master: dict, job: dict, proficiency: dict) -> tuple[dict, dict]:
     for sid in order:
         has = (float(proficiency.get(sid, 0)) >= ADD_MIN_PROFICIENCY or bool(COMPILED[sid].search(base_text))
                or sid in extra or HUMAN.get(sid, "").lower() in extra_names)
-        keywords.append({"term": _jd_form(sid, jd), "sid": sid, "has": has, "human": HUMAN.get(sid, sid)})
+        term = _jd_form(sid, jd)
+        has = has or sid in us or term.lower() in us or HUMAN.get(sid, "").lower() in us
+        keywords.append({"term": term, "sid": sid, "has": has, "human": HUMAN.get(sid, sid)})
     for name, rx_jd, rx_cv in PHRASES:
         if re.search(rx_jd, jd, re.I):
-            keywords.append({"term": name, "sid": None, "has": bool(re.search(rx_cv, base_text, re.I)), "human": name})
+            keywords.append({"term": name, "sid": None, "has": bool(re.search(rx_cv, base_text, re.I)) or name.lower() in us,
+                             "human": name})
     for x in master.get("extra_skills") or []:  # your own declared extras that the ad mentions by name
         n = x.get("name") or ""
         if n and _literal(n, jd) and not any(k["term"].lower() == n.lower() for k in keywords):

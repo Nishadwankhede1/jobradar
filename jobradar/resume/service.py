@@ -36,8 +36,11 @@ def build_resumes(db, settings, root: Path, job_ids: list[int] | None = None) ->
             log.warning("tailored CVs skipped – the 'reportlab' package is missing (run: python -m pip install reportlab)")
             _WARNED = True
         return 0
+    from .myskills import user_skill_keys
     master = load_master(root)
-    mh = hashlib.sha256(json.dumps(master, sort_keys=True).encode()).hexdigest()[:10]  # editing resume.json → rebuild
+    us = user_skill_keys(db)
+    # editing resume.json or confirming a skill in the dashboard → rebuild
+    mh = hashlib.sha256(json.dumps([master, sorted(us)], sort_keys=True).encode()).hexdigest()[:10]
     prof = settings.profile.get("skills", {})
     out_dir = root / settings.get("resume", "output_dir", "output/resumes")
     out_dir.mkdir(parents=True, exist_ok=True)
@@ -50,7 +53,7 @@ def build_resumes(db, settings, root: Path, job_ids: list[int] | None = None) ->
               AND s.hard_disqualifiers IN ('[]','') AND (r.job_id IS NULL OR r.content_hash != COALESCE(j.content_hash, '') || ':' || ?)""", (min_score, mh))
     n = 0
     for j in rows:
-        cv, rep = tailor(master, j, prof)
+        cv, rep = tailor(master, j, prof, us)
         name = cv_filename(master["name"], j)
         try:
             (out_dir / name).write_bytes(render_pdf(cv, subject=f"{j.get('title')} – {j.get('company_display')}"))

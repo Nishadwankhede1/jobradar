@@ -87,7 +87,8 @@ button{margin-top:10px;font:600 15px system-ui;padding:10px 14px;border:0;border
 
 def apply_ticks(runs_json: Path, db) -> int:
     """Ticks sent from the dashboard arrive as titles of 'JobRadar tick' runs: "tick <base64url(JR1 ciphertext)>".
-    Each payload is a JSON list of {"id": job_id, "on": bool, "st": stage}. Only payloads that decrypt with your key
+    Each payload is a JSON list of {"id": job_id, "on": bool, "st": stage} (applied ticks) or {"sk": keyword, "on": bool}
+    (skills you confirmed for your CVs). Only payloads that decrypt with your key
     are accepted (nobody else can forge one), and each run is applied once."""
     import base64
     from .applications import STATUSES, set_applied
@@ -106,6 +107,10 @@ def apply_ticks(runs_json: Path, db) -> int:
         except Exception:
             continue  # not ours / damaged → ignore
         for it in items if isinstance(items, list) else []:
+            if isinstance(it, dict) and it.get("sk"):  # "I know this skill" from a CV keyword chip
+                from .resume.myskills import set_user_skill
+                n += bool(set_user_skill(db, str(it["sk"]), bool(it.get("on", True))))
+                continue
             try:
                 st = it.get("st") if it.get("st") in STATUSES else None
                 set_applied(db, int(it["id"]), bool(it.get("on", True)), st)

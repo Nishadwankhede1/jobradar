@@ -197,6 +197,18 @@ def cmd_cloud_publish(args):
     db.close()
 
 
+def cmd_skill(args):
+    """Confirm (or remove) skills you have, so tailored CVs may use them: python -m jobradar skill add Airflow dbt"""
+    from .resume.myskills import get_user_skills, set_user_skill
+    settings, db, http, _ = _ctx(args)
+    for t in args.terms or []:
+        set_user_skill(db, t, args.action == "add")
+    print("Your confirmed skills:", ", ".join(x["term"] for x in get_user_skills(db)) or "(none)")
+    if args.terms:
+        print("Run 'python -m jobradar resume' (or the next scan) to rebuild your CVs.")
+    db.close()
+
+
 def cmd_cloud_ticks(args):
     from .cloud import apply_ticks
     settings, db, http, _ = _ctx(args)
@@ -280,6 +292,8 @@ def main(argv=None):
     s = sub.add_parser("cloud-restore"); s.add_argument("file"); s.set_defaults(fn=cmd_cloud_restore)
     s = sub.add_parser("cloud-save"); s.add_argument("file"); s.set_defaults(fn=cmd_cloud_save)
     s = sub.add_parser("cloud-publish"); s.add_argument("dir"); s.set_defaults(fn=cmd_cloud_publish)
+    s = sub.add_parser("skill", help="add/remove skills you confirm for tailored CVs")
+    s.add_argument("action", choices=["add", "remove", "list"]); s.add_argument("terms", nargs="*"); s.set_defaults(fn=cmd_skill)
     s = sub.add_parser("cloud-ticks"); s.add_argument("file"); s.set_defaults(fn=cmd_cloud_ticks)
     s = sub.add_parser("export"); s.add_argument("--out", default="site/matches.csv"); s.set_defaults(fn=cmd_export)
     s = sub.add_parser("daemon"); s.add_argument("--tick", default=5); s.add_argument("--dry-run", action="store_true"); s.set_defaults(fn=cmd_daemon)

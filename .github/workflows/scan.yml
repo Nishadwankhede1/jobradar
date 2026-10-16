@@ -18,6 +18,10 @@ on:
         description: "Also send today's digest now"
         type: boolean
         default: false
+      quick:
+        description: "Only rebuild CVs + dashboard (no scan) - used by the dashboard after you add a skill"
+        type: boolean
+        default: false
 
 concurrency:
   group: jobradar-state
@@ -120,7 +124,11 @@ jobs:
           FORCE=""; [ "${{ github.event.inputs.force }}" = "true" ] && FORCE="--force"
           # the detailed log can mention your matches, so it goes into the encrypted vault, not the public log
           set +e
-          python -m jobradar scan $FORCE --trigger "${{ github.event_name }}" > state/last_run.log 2>&1
+          if [ "${{ github.event.inputs.quick }}" = "true" ]; then
+            python -m jobradar resume > state/last_run.log 2>&1      # CV keywords you just confirmed - no scan needed
+          else
+            python -m jobradar scan $FORCE --trigger "${{ github.event_name }}" > state/last_run.log 2>&1
+          fi
           rc=$?
           if [ "${{ github.event.inputs.digest }}" = "true" ]; then python -m jobradar digest --force >> state/last_run.log 2>&1; fi
           set -e

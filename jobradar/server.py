@@ -63,10 +63,13 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         return super().do_GET()
 
     def do_POST(self):
-        if urlparse(self.path).path != "/api/applied":
+        path = urlparse(self.path).path
+        if path not in ("/api/applied", "/api/skill"):
             return self._json(404, {"ok": False})
         if self.headers.get("X-JobRadar") != "1" or not self._local_host():
             return self._json(403, {"ok": False, "error": "forbidden"})
+        if path == "/api/skill":
+            return self._skill()
         try:
             n = int(self.headers.get("Content-Length") or 0)
             req = json.loads(self.rfile.read(min(n, 10000)) or b"{}")
@@ -84,6 +87,38 @@ class Handler(http.server.SimpleHTTPRequestHandler):
                 except (KeyError, ValueError, TypeError):
                     continue
             return self._json(200, {"ok": True, "saved": done, "applications": all_applications(db)})
+        finally:
+            db.close()
+
+
+    def _skill(self):
+        """{"term": "Airflow", "on": true, "job_id": 123} → remember the skill and rebuild that job's CV right away
+        (the other CVs are refreshed at the next scan)."""
+        from .resume.myskills import get_user_skills, set_user_skill
+        from .resume.service import build_resumes
+        from .config import ROOT
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            req = json.loads(self.rfile.read(min(n, 2000)) or b"{}")
+            term, on = str(req.get("term") or "").strip(), bool(req.get("on", True))
+            job_id = int(req["job_id"]) if req.get("job_id") is not None else None
+        except (ValueError, TypeError):
+            return self._json(400, {"ok": False, "error": "bad request"})
+        if not term:
+            return self._json(400, {"ok": False, "error": "no keyword"})
+        db = self._db()
+        try:
+            set_user_skill(db, term, on)
+            cv = None
+            if job_id is not None:
+                build_resumes(db, self.settings, ROOT, job_ids=[job_id])
+                r = db.q("SELECT * FROM resumes WHERE job_id=?", (job_id,))
+                if r:
+                    r = r[0]
+                    cv = {"cv_file": r["file"], "cv_before": r["coverage_before"], "cv_after": r["coverage_after"],
+                          "cv_added": json.loads(r["added"]) if isinstance(r["added"], str) else r["added"],
+                          "cv_missing": json.loads(r["missing"]) if isinstance(r["missing"], str) else r["missing"]}
+            return self._json(200, {"ok": True, "user_skills": [x["term"] for x in get_user_skills(db)], "cv": cv})
         finally:
             db.close()
 
