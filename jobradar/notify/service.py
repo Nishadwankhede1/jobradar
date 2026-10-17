@@ -70,8 +70,8 @@ class Notifier:
         cap = int(self.s.get("notify", "max_alerts_per_run", 15))
         on_baseline = bool(self.s.get("notify", "alert_on_baseline", False))
         sent = failed = 0
-        from ..applications import all_applications, match
-        apps = all_applications(self.db)
+        from ..applications import all_applications, match, not_relevant
+        apps = all_applications(self.db) + not_relevant(self.db)  # applied to, or marked "Not relevant" on the dashboard
         # job-alert e-mail / aggregator leads: instant alert too (being early matters), but only fresh ones, never old backlog
         leads_ok = bool(self.s.get("notify", "instant_alerts_for_leads", True))
         lead_max_age = timedelta(hours=float(self.s.get("notify", "lead_alert_max_age_hours", 48)))
@@ -83,7 +83,7 @@ class Notifier:
             for j in self.candidates(thr):
                 if (not j["is_official"] and not lead_fresh(j)) or self._already(j["id"], ch.name) or self._attempts(j["id"], ch.name) >= 5:
                     continue
-                if apps and match(j, apps):  # you already applied to this job (or the same role at this employer)
+                if apps and match(j, apps):  # applied / not relevant – this job or the same role at this employer
                     continue
                 if j["baseline"] and not on_baseline:
                     baseline_rows.append(j)
@@ -151,8 +151,8 @@ class Notifier:
         date = local.strftime("%Y-%m-%d")
         since = iso(utcnow() - timedelta(hours=24))
         min_s = float(self.s.get("scoring", "digest_min_score", 6.0))
-        from ..applications import all_applications, match
-        apps = all_applications(self.db)
+        from ..applications import all_applications, match, not_relevant
+        apps = all_applications(self.db) + not_relevant(self.db)
         rows = [r for r in self.candidates(min_s) if (r["first_seen_at"] or "") >= since and not (apps and match(r, apps))]
         official = [r for r in rows if r["is_official"]]
         leads = [r for r in rows if not r["is_official"]] if self.s.get("notify", "include_unverified_leads_in_digest", True) else []
