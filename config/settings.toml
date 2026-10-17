@@ -19,7 +19,8 @@ user_agent = "JobRadar/1.0 (personal job-alert monitor; low-frequency polling of
 # Employers whose sites block or disallow automated reading from cloud servers (robots.txt, HTTP 403, empty
 # answers). They stay on your list and are followed through LinkedIn / e-mail job alerts instead.
 alerts_only = ["emirates-group", "huspy", "huawei", "jumeirah-group", "totalenergies", "google",
-               "accenture-middle-east"]   # 17 Oct 2026: Accenture's public Workday site now redirects to accenture.com
+               "accenture-middle-east",   # 17 Oct 2026: Accenture's public Workday site now redirects to accenture.com
+               "difc-authority"]          # difc.com answers every automated read with HTTP 429 (too many requests)
 
 [polling]
 # Base interval (minutes) per company priority. Adaptive: halves for sources with recent new jobs (floor = min),
@@ -30,7 +31,7 @@ priority_3 = 60
 aggregator = 60
 min = 15
 max = 240
-max_backoff = 1440
+max_backoff = 240                 # a failing source is retried at least every 4 hours (self-heals once the site answers)
 
 [locations]
 # tier -> eligibility penalty (0 = fine). "outside" is a hard disqualifier.
