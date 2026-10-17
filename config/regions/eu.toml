@@ -1,8 +1,8 @@
 # Settings for the Europe instance (JOBRADAR_REGION=eu). Merged over settings.toml – only differences live here.
-# Order = priority. Germany ("de") can be added later.
+# Order = priority.
 
 [region]
-countries = ["nl", "uk"]
+countries = ["nl", "de", "uk"]
 # Gross monthly salary (EUR) a Dutch "highly skilled migrant" permit needs in 2026 (IND): 30+ = 5942, under 30 = 4357,
 # reduced criterion (recent graduate / orientation year) = 3122. Used only to flag low offers, never to hide jobs.
 nl_hsm_monthly_min = 4357
@@ -23,6 +23,7 @@ hard_reject_outside_uae = true      # (name kept for compatibility) jobs outside
 
 [sources]
 alerts_only = []
+promote_leads_per_scan = 15   # employers seen only through LinkedIn / e-mail / job-board leads → follow their own careers feed
 
 [polling]
 priority_1 = 30
@@ -33,7 +34,7 @@ min = 30
 max = 360
 
 [dashboard]
-title = "JobRadar · Netherlands & UK (visa-sponsoring, English-speaking)"
+title = "JobRadar · Netherlands, Germany & UK (visa-friendly, English-speaking)"
 
 [notify]
 tag = "EU"                          # alerts start with the country flag, e.g. 🇳🇱
