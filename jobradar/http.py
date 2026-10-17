@@ -4,6 +4,7 @@ from __future__ import annotations
 import gzip
 import json
 import random
+import re
 import ssl
 import threading
 import time
@@ -155,11 +156,24 @@ class HttpClient:
             return self.pending.pop(source_id, {})
 
     # -------------------------------------------------------- throttling
+    # Shared ATS servers rate-limit per caller, not per employer: every *.wd3.myworkdayjobs.com tenant (or Oracle HCM pod)
+    # is one server, so they share one pace. (host pattern → (group key, seconds between requests))
+    SHARED_HOSTS = [(re.compile(r"(?:^|\.)(wd\d+\.myworkdayjobs\.com|wd\d+\.myworkdaysite\.com)$"), 1.5),
+                    (re.compile(r"(?:^|\.)(fa\.\w+\.oraclecloud\.com)$"), 1.2)]
+
+    def _pace(self, host: str) -> tuple[str, float]:
+        for rx, gap in self.SHARED_HOSTS:
+            m = rx.search(host)
+            if m:
+                return m.group(1), max(gap, self.min_interval)
+        return host, self.min_interval
+
     def _throttle(self, host: str):
+        host, gap = self._pace(host)
         with self._glock:
             lock = self._host_locks.setdefault(host, threading.Lock())
         with lock:
-            wait = self.min_interval - (time.monotonic() - self._host_last.get(host, 0))
+            wait = gap - (time.monotonic() - self._host_last.get(host, 0))
             if wait > 0:
                 self.sleep(wait)
             self._host_last[host] = time.monotonic()
