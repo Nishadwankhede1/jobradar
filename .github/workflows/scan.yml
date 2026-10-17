@@ -187,7 +187,10 @@ jobs:
 
   scan_eu:
     # Europe instance (Netherlands → Germany → UK). Switch on with the repository variable EU_ENABLED = true.
-    if: vars.EU_ENABLED == 'true'
+    # Runs after the UAE scan, never at the same time: many employers are read from the same Workday / Oracle servers,
+    # which refuse callers that ask too often.
+    needs: scan
+    if: always() && vars.EU_ENABLED == 'true'
     runs-on: ubuntu-latest
     timeout-minutes: 40
     concurrency:              # one scan at a time (they share the encrypted database)
