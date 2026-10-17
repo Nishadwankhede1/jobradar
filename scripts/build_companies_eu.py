@@ -1,4 +1,4 @@
-"""Build config/companies_eu.json for the Europe instance (JOBRADAR_REGION=eu) – Netherlands and UK employers.
+"""Build config/companies_eu.json for the Europe instance (JOBRADAR_REGION=eu) – Netherlands, Germany and UK employers.
 
 1. Global employers already verified for the UAE list whose ATS feed covers every country (Workday, Greenhouse,
    Lever, Ashby, SmartRecruiters, Workable, Recruitee) – the adapters keep only jobs in the enabled countries.
@@ -75,6 +75,22 @@ UK_EMPLOYERS = [
     ("BBC", ["bbc"], "Media"), ("Channel 4", ["channel4"], "Media"), ("Just Eat", ["justeat"], "E-commerce"),
 ]
 
+# Employers with a large Berlin / Munich / Hamburg data team that hire in English. Germany has no sponsor register:
+# any employer can hire you on an EU Blue Card, so the job ad's language and pay decide (see scoring/sponsor.py).
+DE_EMPLOYERS = [
+    ("Delivery Hero", ["deliveryhero"], "E-commerce"), ("HelloFresh", ["hellofresh"], "E-commerce"),
+    ("N26", ["n26"], "Fintech"), ("Trade Republic", ["traderepublic", "traderepublicbank"], "Fintech"),
+    ("SumUp", ["sumup"], "Fintech"), ("Raisin", ["raisin"], "Fintech"), ("Solaris", ["solaris", "solarisbank"], "Fintech"),
+    ("Scalable Capital", ["scalablecapital"], "Fintech"), ("Moss", ["moss", "getmoss"], "Fintech"),
+    ("Celonis", ["celonis"], "Software"), ("Contentful", ["contentful"], "Software"), ("Pitch", ["pitch"], "Software"),
+    ("Choco", ["choco"], "Software"), ("SoundCloud", ["soundcloud"], "Media"), ("Statista", ["statista"], "Data"),
+    ("Auto1 Group", ["auto1", "auto1group"], "E-commerce"), ("Grover", ["grover"], "E-commerce"),
+    ("Wolt", ["wolt"], "E-commerce"), ("Wayfair", ["wayfair"], "E-commerce"), ("Flix", ["flix", "flixbus"], "Mobility"),
+    ("Omio", ["omio"], "Travel tech"), ("Enpal", ["enpal"], "Energy"), ("1KOMMA5°", ["1komma5grad", "1komma5"], "Energy"),
+    ("SAP", ["sap"], "Software"), ("Siemens", ["siemens"], "Industrial tech"), ("BMW Group", ["bmwgroup", "bmw"], "Automotive"),
+    ("Allianz", ["allianz"], "Insurance"), ("Deutsche Bank", ["deutschebank", "db"], "Banking"),
+]
+
 SEARCH_COUNTRY = {"nl": "Netherlands", "uk": "United Kingdom", "de": "Germany"}
 
 
@@ -130,16 +146,18 @@ def main():
         seen.add(key)
     import os
     countries = [c.strip() for c in (os.environ.get("JOBRADAR_COUNTRIES") or "").split(",") if c.strip()] or enabled_countries()
-    if "uk" in countries:
-        for name, slugs, ind, *alias in UK_EMPLOYERS:
+    for code, employers, label in (("de", DE_EMPLOYERS, "German"), ("uk", UK_EMPLOYERS, "UK")):
+        if code not in countries:
+            continue
+        for name, slugs, ind, *alias in employers:
             key = re.sub(r"[^a-z0-9]", "", name.lower())
             if key in seen:
                 continue
-            out.append({"id": "uk-" + slug(name), "name": name, "industry": ind, "ats": "auto",
+            out.append({"id": f"{code}-" + slug(name), "name": name, "industry": ind, "ats": "auto",
                         "ats_config": {"slugs": slugs, **({"sponsor_names": alias[0]} if alias else {})},
                         "priority": 1, "kind": "employer", "verified": False,
                         "verification_note": "Public ATS feed found automatically on first scan (re-checked weekly if none)",
-                        "discovered_in": "build_companies_eu.py (UK employers)"})
+                        "discovered_in": f"build_companies_eu.py ({label} employers)"})
             seen.add(key)
     for c in countries:  # one Workable / Jooble search per country ("workable-search-eu" keeps its id for the NL one)
         if c not in SEARCH_COUNTRY:
