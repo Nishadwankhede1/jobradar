@@ -52,7 +52,10 @@ class Workday(Adapter):
         try:
             return r.json()
         except ValueError:
-            raise WorkdayBusy(429, url, "Workday sent a web page instead of data (busy / limiting requests) – retried later")
+            import re as _re
+            t = _re.search(r"<title[^>]*>(.*?)</title>", r.text or "", _re.S | _re.I)
+            what = (t.group(1).strip()[:60] if t else (r.text or "").strip()[:60]) or "empty reply"
+            raise WorkdayBusy(429, url, f"Workday sent a web page instead of data ('{what}', HTTP {r.status}) – retried later")
 
     def fetch(self, company, ctx: FetchContext) -> AdapterResult:
         host, tenant, site = self.cfg(company, "host"), self.cfg(company, "tenant"), self.cfg(company, "site")
