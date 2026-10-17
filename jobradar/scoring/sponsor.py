@@ -2,7 +2,9 @@
 
 Three independent signals, shown as badges on the dashboard:
   register  – the employer is on an official sponsor register (NL: IND "recognised sponsors" for work; UK: Home Office
-              register of licensed sponsors, Skilled Worker / Scale-up routes, A-rated; DE has no register).
+              register of licensed sponsors, Skilled Worker / Scale-up routes, A-rated). Germany has no register:
+              any employer can hire you on an EU Blue Card, so there a job counts as possible unless the ad refuses
+              sponsorship (German-language ads are already rejected as "team works in German").
               Refreshed weekly by the scan (or `python -m jobradar sponsors`).
   ad        – the job ad itself offers visa sponsorship / relocation ("offers"), or rules it out ("refuses")
   english   – the ad is written in English and doesn't demand Dutch / German
@@ -166,7 +168,8 @@ def visa_info(job: dict, company: dict, tier: str) -> dict:
             "relocation": bool(RELOCATION.search(text)), "language": lang,
             "salary_month": round(sal) if sal else None,
             "salary_ok": None if not (sal and floor) else sal >= floor, "salary_floor": round(floor) if floor else None,
-            "likely": bool(reg or (pos and not neg))}
+            "blue_card": tier == "de",
+            "likely": bool(reg or (pos and not neg) or (tier == "de" and not neg))}
 
 
 def assess_eu(e, title: str, text: str, tier: str) -> None:
@@ -179,6 +182,8 @@ def assess_eu(e, title: str, text: str, tier: str) -> None:
         e.hard.append(f"Job ad is written in {LANG_NAME[lang]} – the team likely works in {LANG_NAME[lang]}")
     if SPONSOR_POS.search(text):
         e.notes.append("Ad mentions visa sponsorship / relocation support")
+    elif tier == "de" and not neg:
+        e.notes.append("Germany: any employer can hire you on an EU Blue Card if the pay clears the minimum – no sponsor licence needed")
     elif not neg:
         e.uncertain.append("Ad doesn't mention visa sponsorship – check the sponsor badge / ask the recruiter")
 
