@@ -278,6 +278,23 @@ def next_interval(settings: Settings, company: dict, src: dict, changed: bool, o
     return int(base)
 
 
+# Errors produced by code that has since been fixed: sources stuck in back-off with one of these retry on the next scan
+# instead of waiting out the back-off (self-healing after an update). Each entry: (ats, LIKE pattern on last_error).
+HEALED_ERRORS = [("workday", "JSONDecodeError%")]
+
+
+def heal_sources(db: Database) -> int:
+    n = 0
+    for ats, pattern in HEALED_ERRORS:
+        cur = db.execute("UPDATE sources SET next_due_at=NULL WHERE last_status='error' AND last_error LIKE ? AND next_due_at IS NOT NULL "
+                         "AND company_id IN (SELECT id FROM companies WHERE ats=?)", (pattern, ats))
+        n += cur.rowcount or 0
+    if n:
+        db.commit()
+        log.info("self-heal: %d source(s) with an already-fixed error retry now", n)
+    return n
+
+
 def due_sources(db: Database, only: list[str] | None = None, force=False) -> list[dict]:
     rows = db.q("SELECT c.*, s.next_due_at, s.baseline_done, s.consecutive_failures, s.last_change_at, s.total_runs, "
                 "s.total_failures FROM companies c JOIN sources s ON s.company_id = c.id "
@@ -306,6 +323,7 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
     if is_eu():  # Europe instance: keep the official sponsor register current (monthly list, checked weekly)
         from .scoring.sponsor import refresh_registers
         log.info("NL sponsor register: %s", refresh_registers(http, db))
+    heal_sources(db)
     http.cache.update(db.load_http_cache())
     sources = due_sources(db, only, force)
     max_rt = float(settings.get("scan", "max_runtime_seconds", 420))
