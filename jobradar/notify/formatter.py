@@ -40,7 +40,7 @@ def visa_line(v: dict | None) -> str:
         return ""
     bits = []
     if v.get("register"):
-        bits.append(f"✅ official IND sponsor ({v['register']})")
+        bits.append(f"✅ {v.get('register_src') or 'official sponsor'} ({v['register']})")
     if v.get("ad") == "offers":
         bits.append("✅ ad offers visa sponsorship")
     elif v.get("ad") == "refuses":
