@@ -280,14 +280,16 @@ def next_interval(settings: Settings, company: dict, src: dict, changed: bool, o
 
 # Errors produced by code that has since been fixed: sources stuck in back-off with one of these retry on the next scan
 # instead of waiting out the back-off (self-healing after an update). Each entry: (ats, LIKE pattern on last_error).
-HEALED_ERRORS = [("workday", "JSONDecodeError%")]
+HEALED_ERRORS = [("workday", "JSONDecodeError%"), ("%", "%run time budget exhausted%")]
 
 
 def heal_sources(db: Database) -> int:
     n = 0
     for ats, pattern in HEALED_ERRORS:
-        cur = db.execute("UPDATE sources SET next_due_at=NULL WHERE last_status='error' AND last_error LIKE ? AND next_due_at IS NOT NULL "
-                         "AND company_id IN (SELECT id FROM companies WHERE ats=?)", (pattern, ats))
+        cur = db.execute("UPDATE sources SET next_due_at=NULL, last_status=CASE WHEN last_error LIKE '%run time budget exhausted%' "
+                         "THEN 'ok' ELSE last_status END, consecutive_failures=CASE WHEN last_error LIKE '%run time budget exhausted%' "
+                         "THEN 0 ELSE consecutive_failures END WHERE last_status='error' AND last_error LIKE ? "
+                         "AND company_id IN (SELECT id FROM companies WHERE ats LIKE ?)", (pattern, ats))
         n += cur.rowcount or 0
     if n:
         db.commit()
@@ -358,6 +360,12 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
         scan_ts = now_iso()
         stats["sources_checked"] += 1
         baseline = not src.get("baseline_done")
+        if err and "run time budget exhausted" in err:
+            # not the employer's fault: this scan ran out of time before finishing it → simply due again next run
+            stats["sources_checked"] -= 1
+            db.update("sources", {"company_id": cid}, {"next_due_at": None})
+            log.info("source %-28s deferred to next run (time budget)", company["name"][:28])
+            return
         if err:
             stats["sources_failed"] += 1
             iv = next_interval(settings, company, src, False, False)
