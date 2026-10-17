@@ -235,41 +235,43 @@ class SmartRecruiters(Adapter):
         brands = [b.lower() for b in self.cfg(company, "brand_keywords", [], required=False)]
         brand_only = bool(self.cfg(company, "brand_filter", False, required=False))
         base = f"https://api.smartrecruiters.com/v1/companies/{cid}/postings"
-        jobs, offset, total, details = [], 0, None, 0
-        for _ in range(ctx.max_pages):
-            cc = region_iso2()
-            data = self.http.get_json(base, params={**({"country": cc[0]} if len(cc) == 1 else {}), "limit": 100, "offset": offset})
-            total = data.get("totalFound", 0)
-            page = data.get("content", [])
-            for p in page:
-                l = p.get("location") or {}
-                loc = l.get("fullLocation") or ", ".join(x for x in (l.get("city"), l.get("region"), l.get("country")) if x)
-                if not self.is_uae(loc, l.get("country")):
-                    continue
-                pid = str(p["id"])
-                marker = p.get("releasedDate") or ""
-                desc, url = None, f"https://jobs.smartrecruiters.com/{cid}/{pid}"
-                if self.need_detail(ctx, pid, marker) and details < ctx.max_detail_fetches:
-                    d = self.http.get_json(f"{base}/{pid}")
-                    details += 1
-                    secs = ((d.get("jobAd") or {}).get("sections") or {})
-                    desc = "\n\n".join(f"{(s or {}).get('title', '')}\n{html_to_text((s or {}).get('text'))}"
-                                       for k, s in secs.items() if k != "companyDescription" and s)
-                    url = d.get("postingUrl") or url
-                brand = None
-                hay = f"{p.get('name', '')} {(p.get('department') or {}).get('label', '')} {desc or ''}".lower()
-                for b in brands:
-                    if re.search(rf"\b{re.escape(b)}\b", hay):
-                        brand = b.title()
-                        break
-                if brand_only and brands and not brand and desc is not None:
-                    continue
-                jobs.append(RawJob(source=self.name, external_id=pid, title=p.get("name", ""), url=url, location=loc,
-                                   description=desc, employment_type=(p.get("typeOfEmployment") or {}).get("label"),
-                                   department=(p.get("department") or {}).get("label"), posted_at=_iso(p.get("releasedDate")),
-                                   company_name=brand, country_code=(l.get("country") or "").upper() or None,
-                                   updated_marker=marker))
-            offset += len(page)
-            if not page or offset >= total:
-                break
-        return AdapterResult(jobs, complete=total is not None and offset >= (total or 0))
+        jobs, details, complete = [], 0, True
+        for cc in region_iso2():  # the API filters one country at a time
+            offset, total = 0, None
+            for _ in range(ctx.max_pages):
+                data = self.http.get_json(base, params={"country": cc, "limit": 100, "offset": offset})
+                total = data.get("totalFound", 0)
+                page = data.get("content", [])
+                for p in page:
+                    l = p.get("location") or {}
+                    loc = l.get("fullLocation") or ", ".join(x for x in (l.get("city"), l.get("region"), l.get("country")) if x)
+                    if not self.is_uae(loc, l.get("country")):
+                        continue
+                    pid = str(p["id"])
+                    marker = p.get("releasedDate") or ""
+                    desc, url = None, f"https://jobs.smartrecruiters.com/{cid}/{pid}"
+                    if self.need_detail(ctx, pid, marker) and details < ctx.max_detail_fetches:
+                        d = self.http.get_json(f"{base}/{pid}")
+                        details += 1
+                        secs = ((d.get("jobAd") or {}).get("sections") or {})
+                        desc = "\n\n".join(f"{(s or {}).get('title', '')}\n{html_to_text((s or {}).get('text'))}"
+                                           for k, s in secs.items() if k != "companyDescription" and s)
+                        url = d.get("postingUrl") or url
+                    brand = None
+                    hay = f"{p.get('name', '')} {(p.get('department') or {}).get('label', '')} {desc or ''}".lower()
+                    for b in brands:
+                        if re.search(rf"\b{re.escape(b)}\b", hay):
+                            brand = b.title()
+                            break
+                    if brand_only and brands and not brand and desc is not None:
+                        continue
+                    jobs.append(RawJob(source=self.name, external_id=pid, title=p.get("name", ""), url=url, location=loc,
+                                       description=desc, employment_type=(p.get("typeOfEmployment") or {}).get("label"),
+                                       department=(p.get("department") or {}).get("label"), posted_at=_iso(p.get("releasedDate")),
+                                       company_name=brand, country_code=(l.get("country") or "").upper() or None,
+                                       updated_marker=marker))
+                offset += len(page)
+                if not page or offset >= total:
+                    break
+            complete = complete and total is not None and offset >= (total or 0)
+        return AdapterResult(jobs, complete=complete)
