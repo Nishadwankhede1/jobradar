@@ -1,8 +1,9 @@
 """Visa-sponsor, language and relocation signals for the Europe instance (JOBRADAR_REGION=eu).
 
 Three independent signals, shown as badges on the dashboard:
-  register  – the employer is on an official sponsor register (NL: IND "recognised sponsors" for work, refreshed
-              monthly by `python -m jobradar sponsors`; DE has no register; UK: Home Office list – later phase)
+  register  – the employer is on an official sponsor register (NL: IND "recognised sponsors" for work; UK: Home Office
+              register of licensed sponsors, Skilled Worker / Scale-up routes, A-rated; DE has no register).
+              Refreshed weekly by the scan (or `python -m jobradar sponsors`).
   ad        – the job ad itself offers visa sponsorship / relocation ("offers"), or rules it out ("refuses")
   english   – the ad is written in English and doesn't demand Dutch / German
 Nothing here is guessed from the company's reputation: no evidence = "unknown", never "sponsors".
@@ -17,8 +18,11 @@ from pathlib import Path
 
 from ..region import ROOT, overlay
 
-REGISTER_FILE = {"nl": ROOT / "state" / "sponsors_nl.json"}
+REGISTER_FILE = {"nl": ROOT / "state" / "sponsors_nl.json", "uk": ROOT / "state" / "sponsors_uk.json"}
+REGISTER_NAME = {"nl": "IND recognised sponsor", "uk": "UK Home Office licensed sponsor"}
 IND_WORK_URL = "https://ind.nl/en/public-register-recognised-sponsors/public-register-work"
+UK_REGISTER_API = "https://www.gov.uk/api/content/government/publications/register-of-licensed-sponsors-workers"
+UK_ROUTES = ("skilled worker", "scale-up")   # routes that cover a data / BI job (not seasonal, religious, creative…)
 
 SPONSOR_POS = re.compile(
     r"visa sponsorship (?:is )?(?:available|provided|offered|possible|support)|(?:we|company) (?:can|will|do|does|are able to) "
@@ -26,7 +30,8 @@ SPONSOR_POS = re.compile(
     r"(?:full )?(?:visa|work permit) (?:sponsorship|support|assistance)|highly[- ]skilled migrant|kennismigrant|"
     r"(?:eu )?blue card|30 ?% (?:ruling|tax ruling|tax benefit)|(?:visa|immigration) (?:support|assistance|process)|"
     r"open to (?:international|non-eu) (?:candidates|applicants)|(?:international|non-eu) (?:candidates|applicants) (?:are )?welcome|"
-    r"we sponsor|sponsor(?:ing)? (?:your|the) (?:visa|work permit)", re.I)
+    r"we sponsor|sponsor(?:ing)? (?:your|the) (?:visa|work permit)|(?:skilled worker|tier 2) (?:visa )?sponsorship (?:is )?(?:available|"
+    r"offered|provided|possible)|(?:can|will|able to) (?:provide|offer|issue) (?:a )?(?:certificate of sponsorship|skilled worker visa)", re.I)
 SPONSOR_NEG = re.compile(
     r"\bno (?:visa )?sponsorship|(?:unable|not able|cannot|can't|can not|won't|will not|do not|don't|does not|doesn't|are not able) "
     r"(?:to )?(?:provide |offer |support |consider )?(?:visa |work permit )?sponsor|not (?:in a position|able) to (?:provide )?(?:visa )?sponsor|"
@@ -46,7 +51,7 @@ DE = {"der", "die", "das", "und", "mit", "für", "wir", "sie", "ein", "eine", "i
 LANG_NAME = {"nl": "Dutch", "de": "German"}
 GENERIC_TAIL = {"com", "technologies", "technology", "tech", "software", "payments", "bank", "labs", "digital", "solutions",
                 "systems", "trading", "financial", "finance", "fintech", "platform", "online", "operations", "development",
-                "hq", "amsterdam", "nl", "bv", "nv", "and", "company"}
+                "hq", "amsterdam", "nl", "bv", "nv", "and", "company", "uk", "london", "gb", "plc", "europe"}
 
 MONEY = re.compile(r"(€|eur\b|euro|£|gbp)\s?(\d{1,3}(?:[.,\s]\d{3})+|\d+(?:[.,]\d+)?)\s?(k\b)?(?:\s*(?:-|–|to|tot|bis)\s*(?:€|eur|£)?\s?"
                    r"(\d{1,3}(?:[.,\s]\d{3})+|\d+(?:[.,]\d+)?)\s?(k\b)?)?[^.\n]{0,25}?(per month|a month|/ ?month|monthly|per maand|"
@@ -68,40 +73,42 @@ def norm_org(name: str) -> str:
     s = re.sub(r"\(.*?\)", " ", s)
     s = re.sub(r"[^a-z0-9]+", " ", s)
     s = re.sub(r"\b(b ?v|n ?v|bv|nv|gmbh|ag|se|ltd|limited|plc|llc|inc|corp|corporation|co|company|holding|holdings|group|"
-               r"nederland|netherlands|the|europe|emea|international|benelux|global|services|vof|cv|stichting)\b", " ", s)
+               r"nederland|netherlands|the|europe|emea|international|benelux|global|services|vof|cv|stichting|t a|trading as)\b", " ", s)
     return re.sub(r"\s+", " ", s).strip()
 
 
 @lru_cache(maxsize=4)
-def _register(country: str) -> dict:
+def _register(country: str) -> tuple[dict, dict]:
+    """(normalised name → register name, first word → [(normalised, register name)]) – the index keeps lookups fast."""
     p = REGISTER_FILE.get(country)
     if not p or not p.exists():
-        return {}
+        return {}, {}
     try:
         names = json.loads(p.read_text(encoding="utf-8")).get("names") or []
     except (OSError, ValueError):
-        return {}
-    out = {}
+        return {}, {}
+    exact, by_first = {}, {}
     for n in names:
         k = norm_org(n)
-        if k and k not in out:
-            out[k] = n
-    return out
+        if k and k not in exact:
+            exact[k] = n
+            by_first.setdefault(k.split()[0], []).append((k, n))
+    return exact, by_first
 
 
 def register_match(country: str, *company_names: str) -> str | None:
-    """Official register entry for this employer (exact name after removing B.V./N.V./GmbH…, or same leading words)."""
-    reg = _register(country)
-    if not reg:
+    """Official register entry for this employer (exact name after removing B.V./N.V./GmbH/Ltd…, or same leading words)."""
+    exact, by_first = _register(country)
+    if not exact:
         return None
     for name in company_names:
         k = norm_org(name)
         if len(k) < 3:
             continue
-        if k in reg:
-            return reg[k]
+        if k in exact:
+            return exact[k]
         if len(k) >= 4:  # "Picnic" ↔ "Picnic Technologies B.V." – only generic extra words, never "Elastic" ↔ "Elastic Media"
-            for rk, orig in reg.items():
+            for rk, orig in by_first.get(k.split()[0], []):
                 if rk.startswith(k + " ") and set(rk[len(k):].split()) <= GENERIC_TAIL:
                     return orig
     return None
@@ -139,14 +146,22 @@ def visa_info(job: dict, company: dict, tier: str) -> dict:
     names = [job.get("company_display") or "", (company or {}).get("name") or ""]
     names += [re.sub(r"\s*\(.*$", "", n) for n in names]
     names += list(((company or {}).get("ats_config") or {}).get("sponsor_names") or [])  # legal name on the register
-    reg = register_match("nl", *names) if tier in ("nl", "remote") else None
+    reg_country = tier if tier in REGISTER_FILE else None
+    reg = register_match(tier, *names) if reg_country else None
+    if not reg and tier == "remote":
+        for c in REGISTER_FILE:
+            reg = register_match(c, *names)
+            if reg:
+                reg_country = c
+                break
     lang = ad_language(text)
     neg, pos = SPONSOR_NEG.search(text), SPONSOR_POS.search(text)
     sal = salary_monthly_eur(text)
     o = overlay().get("region", {})
     floor = {"nl": float(o.get("nl_hsm_monthly_min", 4357)), "de": float(o.get("de_blue_card_yearly_min", 45934)) / 12,
              "uk": float(o.get("uk_skilled_worker_yearly_min", 41700)) * 1.17 / 12}.get(tier)
-    return {"register": reg, "ad": "refuses" if neg else "offers" if pos else None,
+    return {"register": reg, "register_src": REGISTER_NAME.get(reg_country) if reg else None, "country": tier,
+            "ad": "refuses" if neg else "offers" if pos else None,
             "ad_quote": (neg or pos).group(0)[:80] if (neg or pos) else None,
             "relocation": bool(RELOCATION.search(text)), "language": lang,
             "salary_month": round(sal) if sal else None,
@@ -179,6 +194,38 @@ def fetch_nl_register(http) -> dict:
     return {"source": IND_WORK_URL, "updated": upd.group(1) if upd else None, "count": len(names), "names": names}
 
 
+def fetch_uk_register(http) -> dict:
+    """UK Home Office register of licensed sponsors (workers): the CSV linked from GOV.UK's content API.
+    Keeps A-rated sponsors on the Skilled Worker / Scale-up routes (B-rated sponsors can't assign new certificates)."""
+    import csv
+    import io
+    meta = http.get_json(UK_REGISTER_API)
+    att = next((a for a in (meta.get("details") or {}).get("attachments") or []
+                if str(a.get("url", "")).lower().endswith(".csv")), None)
+    if not att:
+        raise ValueError("no CSV attachment on the GOV.UK register page")
+    text = http.get(att["url"]).text
+    rows = csv.reader(io.StringIO(text.lstrip("\ufeff")))
+    head = [h.strip().lower() for h in next(rows, [])]
+    ni = next(i for i, h in enumerate(head) if "organisation" in h)
+    ri = next((i for i, h in enumerate(head) if h == "route"), None)
+    ti = next((i for i, h in enumerate(head) if "rating" in h), None)
+    names = []
+    for r in rows:
+        if len(r) <= ni:
+            continue
+        if ri is not None and (len(r) <= ri or not any(x in r[ri].lower() for x in UK_ROUTES)):
+            continue
+        if ti is not None and len(r) > ti and "b rating" in r[ti].lower():
+            continue
+        n = re.sub(r"\s+", " ", r[ni]).strip(' "')
+        if n:
+            names.append(n)
+    names = list(dict.fromkeys(names))
+    upd = re.search(r"(20\d\d-\d\d-\d\d)", att["url"])
+    return {"source": att["url"], "updated": upd.group(1) if upd else None, "count": len(names), "names": names}
+
+
 def save_register(country: str, data: dict) -> Path:
     p = REGISTER_FILE[country]
     p.parent.mkdir(parents=True, exist_ok=True)
@@ -188,19 +235,31 @@ def save_register(country: str, data: dict) -> Path:
 
 
 def refresh_registers(http, db=None, max_age_days: float = 7) -> str:
-    """Re-download the NL sponsor register when it is missing or older than a week (it changes monthly)."""
+    """Re-download the official sponsor registers of the enabled countries when missing or older than a week."""
     import time
-    p = REGISTER_FILE["nl"]
-    if p.exists() and time.time() - p.stat().st_mtime < max_age_days * 86400:
-        return "fresh"
-    try:
-        data = fetch_nl_register(http)
-    except Exception as e:  # keep the old copy; never break a scan over this
-        return f"failed: {type(e).__name__}"
-    if data["count"] < 1000:  # page layout changed / blocked – don't replace a good list with a broken one
-        return f"suspicious ({data['count']} rows) – kept the old list"
-    save_register("nl", data)
-    if db is not None:  # badges depend on the register → let the next scoring pass recheck plausible jobs
+    from ..region import enabled_countries
+    fetchers = {"nl": (fetch_nl_register, 1000), "uk": (fetch_uk_register, 10000)}
+    out, changed = [], False
+    for c in enabled_countries():
+        if c not in fetchers:
+            continue
+        p = REGISTER_FILE[c]
+        if p.exists() and time.time() - p.stat().st_mtime < max_age_days * 86400:
+            out.append(f"{c}: fresh")
+            continue
+        fetch, min_rows = fetchers[c]
+        try:
+            data = fetch(http)
+        except Exception as e:  # keep the old copy; never break a scan over this
+            out.append(f"{c}: failed ({type(e).__name__})")
+            continue
+        if data["count"] < min_rows:  # page layout changed / blocked – don't replace a good list with a broken one
+            out.append(f"{c}: suspicious ({data['count']} rows) – kept the old list")
+            continue
+        save_register(c, data)
+        changed = True
+        out.append(f"{c}: updated ({data['count']} sponsors, {data.get('updated')})")
+    if changed and db is not None:  # badges depend on the registers → let the next scoring pass recheck plausible jobs
         db.execute("DELETE FROM kv WHERE key='scorer_version'")
         db.commit()
-    return f"updated ({data['count']} sponsors, {data.get('updated')})"
+    return "; ".join(out) or "no register for the enabled countries"
