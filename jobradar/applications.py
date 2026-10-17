@@ -53,3 +53,28 @@ def set_applied(db: Database, job_id: int, applied: bool, status: str | None = N
         "applied_at": old.get("applied_at") or now_iso(), "updated_at": now_iso()}, ["job_id"])
     db.commit()
     return {"job_id": job_id, "applied": True, "status": st}
+
+
+# ---------------------------------------------------------------- "Not relevant"
+# Jobs you dismissed on the dashboard. Kept in the kv table (survives every rescan). A repost or another source's copy
+# of the same role at the same employer counts as dismissed too (same rule as "already applied"), so it stays hidden
+# and never sends a Telegram alert.
+NR_KEY = "not_relevant"
+
+
+def not_relevant(db: Database) -> list[dict]:
+    return db.kv_get(NR_KEY, []) or []
+
+
+def set_not_relevant(db: Database, job_id: int, on: bool) -> dict:
+    lst = [x for x in not_relevant(db) if x.get("job_id") != job_id]
+    if on:
+        j = db.one("SELECT id, company_id, company_display, title, norm_title, fingerprint FROM jobs WHERE id=?", (job_id,))
+        if not j:
+            raise KeyError(job_id)
+        lst.append({"job_id": job_id, "company_id": j["company_id"], "company": j["company_display"], "title": j["title"],
+                    "norm_title": j.get("norm_title") or normalize_title(j["title"] or ""),
+                    "fingerprint": j.get("fingerprint"), "at": now_iso()})
+    db.kv_set(NR_KEY, lst[-3000:])
+    db.commit()
+    return {"job_id": job_id, "not_relevant": bool(on)}

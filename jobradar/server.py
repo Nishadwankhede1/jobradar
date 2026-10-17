@@ -64,12 +64,14 @@ class Handler(http.server.SimpleHTTPRequestHandler):
 
     def do_POST(self):
         path = urlparse(self.path).path
-        if path not in ("/api/applied", "/api/skill"):
+        if path not in ("/api/applied", "/api/skill", "/api/notrelevant"):
             return self._json(404, {"ok": False})
         if self.headers.get("X-JobRadar") != "1" or not self._local_host():
             return self._json(403, {"ok": False, "error": "forbidden"})
         if path == "/api/skill":
             return self._skill()
+        if path == "/api/notrelevant":
+            return self._not_relevant()
         try:
             n = int(self.headers.get("Content-Length") or 0)
             req = json.loads(self.rfile.read(min(n, 10000)) or b"{}")
@@ -90,6 +92,25 @@ class Handler(http.server.SimpleHTTPRequestHandler):
         finally:
             db.close()
 
+
+    def _not_relevant(self):
+        """{"job_id": 123, "on": true} → hide the job (and its reposts) from the dashboard and from alerts."""
+        from .applications import not_relevant, set_not_relevant
+        try:
+            n = int(self.headers.get("Content-Length") or 0)
+            req = json.loads(self.rfile.read(min(n, 2000)) or b"{}")
+            job_id, on = int(req["job_id"]), bool(req.get("on", True))
+        except (KeyError, ValueError, TypeError):
+            return self._json(400, {"ok": False, "error": "bad request"})
+        db = self._db()
+        try:
+            try:
+                set_not_relevant(db, job_id, on)
+            except KeyError:
+                return self._json(404, {"ok": False, "error": "job not found"})
+            return self._json(200, {"ok": True, "not_relevant": not_relevant(db)})
+        finally:
+            db.close()
 
     def _skill(self):
         """{"term": "Airflow", "on": true, "job_id": 123} → remember the skill and rebuild that job's CV right away

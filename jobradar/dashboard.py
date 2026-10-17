@@ -74,10 +74,10 @@ def dashboard_data(db: Database, settings) -> dict:
         WHERE c.kind = 'employer' AND c.enabled=1
         ORDER BY CASE s.last_status WHEN 'error' THEN 0 WHEN 'partial' THEN 1 ELSE 2 END, c.priority, c.name""")
     runs = db.q("SELECT * FROM scan_runs ORDER BY id DESC LIMIT 30")
-    from .applications import all_applications
+    from .applications import all_applications, not_relevant
     apps = all_applications(db)
     from .resume.myskills import get_user_skills
-    return {"stats": coverage_stats(db, thr), "jobs": jobs, "sources": sources, "runs": runs, "applications": apps,
+    return {"stats": coverage_stats(db, thr), "jobs": jobs, "sources": sources, "runs": runs, "applications": apps, "not_relevant": not_relevant(db),
             "user_skills": [x["term"] for x in get_user_skills(db)],
             "threshold": thr, "title": settings.get("dashboard", "title", "JobRadar"), "region": region_info()}
 
@@ -223,6 +223,10 @@ th.num,td.num{text-align:right}
 .tick:hover{border-color:var(--accent)} .tick[aria-pressed=true]{background:var(--good);border-color:var(--good);color:#fff}
 .tick:disabled{opacity:.45;cursor:not-allowed}
 tr.job.done .t{color:var(--muted)}
+.acts{white-space:nowrap} .acts .tick+.tick{margin-left:6px}
+.tick.nr{color:var(--muted);font-size:13px} .tick.nr:hover{border-color:var(--bad);color:var(--bad)}
+.tick.nr[aria-pressed=true]{background:var(--bad);border-color:var(--bad);color:#fff}
+tr.job.dis td{opacity:.55} tr.job.dis td.acts{opacity:1}
 .note{font-size:13px;color:var(--muted);margin:0 0 10px}
 .note.warn{color:var(--warn)}
 .btn.ghost{background:transparent;color:var(--accent);border:1px solid var(--accent);margin-top:8px}
@@ -267,15 +271,16 @@ BODY = r"""
       <label for="undated" title="Some sources (e.g. LinkedIn alert e-mails) don't publish a posting date – include them using the date JobRadar first saw them"><input type="checkbox" id="undated"> include jobs with no portal date</label>
       <label for="leads"><input type="checkbox" id="leads" checked> include LinkedIn / e-mail leads</label>
       <label for="hideapp"><input type="checkbox" id="hideapp" checked> hide jobs I applied to</label>
+      <label for="hidenr" title="Jobs you marked ✕ Not relevant – and reposts of the same role at the same employer"><input type="checkbox" id="hidenr" checked> hide jobs I marked not relevant <span class="mono" id="nrn"></span></label>
       <label for="ctry" class="eu-only">Country <select id="ctry"><option value="">all</option><option value="nl">Netherlands</option><option value="uk">United Kingdom</option><option value="remote">Remote (Europe)</option></select></label>
       <label for="visa" class="eu-only" title="Official sponsor = on the government register (NL: IND recognised sponsors; UK: Home Office licensed sponsors, Skilled Worker). Ad = the job ad offers visa sponsorship.">Visa <select id="visa"><option value="">any</option><option value="likely">can sponsor (list or ad)</option><option value="register">official sponsor list</option><option value="ad">ad offers sponsorship</option></select></label>
       <label for="reloc" class="eu-only"><input type="checkbox" id="reloc"> relocation offered</label>
       <label for="payok" class="eu-only" title="Hide jobs whose stated pay is below the visa salary minimum"><input type="checkbox" id="payok"> pay meets visa minimum</label>
       <span class="shown" id="jshown"></span>
     </div>
-    <div class="scroll"><table><thead><tr><th>Score</th><th>Role</th><th class="hide-sm">Where</th><th class="hide-sm">Posted</th><th>Advice</th><th title="Tick when you have applied">Applied</th></tr></thead>
+    <div class="scroll"><table><thead><tr><th>Score</th><th>Role</th><th class="hide-sm">Where</th><th class="hide-sm">Posted</th><th>Advice</th><th class="acts" title="✕ = not relevant (hide it) · ✓ = applied">Not relevant · Applied</th></tr></thead>
       <tbody id="jobs"></tbody></table></div>
-    <p class="foot">Click a row for the full match explanation and the apply link. 9–10 exceptional · 8–8.9 strong · 7–7.9 good · 6–6.9 possible. Telegram alerts fire at ≥ <span id="thr"></span>.</p>
+    <p class="foot">Click a row for the full match explanation and the apply link. ✕ hides a job you don't want (and its reposts; no more alerts for it) – untick "hide jobs I marked not relevant" to see them and undo. 9–10 exceptional · 8–8.9 strong · 7–7.9 good · 6–6.9 possible. Telegram alerts fire at ≥ <span id="thr"></span>.</p>
   </section>
   <section id="tab-co" hidden>
     <div class="controls">
@@ -413,11 +418,14 @@ function rowHtml(j){
   const ap = appFor(j);
   if (ap && ap.self) chips.push('<span class="chip good">✓ Applied ' + esc(dubai(ap.a.applied_at).slice(0,6)) + '</span>');
   else if (ap) chips.push('<span class="chip warn" title="' + esc(ap.a.title + ' · ' + ap.a.company) + '">⚠ Already applied – same role (' + esc(dubai(ap.a.applied_at).slice(0,6)) + ')</span>');
-  return `<tr class="job${ap ? ' done' : ''}" data-id="${j.id}" tabindex="0" aria-expanded="${open.has(j.id)}"><td><span class="pill ${hard.length?'s0':cls(j.score)}">${(+j.score).toFixed(1)}</span></td>
+  const nr = nrFor(j);
+  if (nr) chips.push(nr.self ? '<span class="chip bad">✕ Not relevant</span>'
+    : '<span class="chip bad" title="' + esc((nr.a.title||'') + ' · ' + (nr.a.company||'')) + '">✕ Not relevant – same role you hid</span>');
+  return `<tr class="job${ap ? ' done' : ''}${nr ? ' dis' : ''}" data-id="${j.id}" tabindex="0" aria-expanded="${open.has(j.id)}"><td><span class="pill ${hard.length?'s0':cls(j.score)}">${(+j.score).toFixed(1)}</span></td>
    <td><div class="t">${esc(j.title)}</div><div class="co">${esc(j.company_display)}</div><div class="only-sm">${ageHtml(j)}</div>${chips.join('')}${visaChips(j)}</td>
    <td class="hide-sm co">${esc(j.city || j.location || '')}</td>
    <td class="hide-sm">${ageHtml(j, true)}</td>
-   <td class="co">${esc(j.recommendation)}</td><td>${tickHtml(j)}</td></tr>`;
+   <td class="co">${esc(j.recommendation)}</td><td class="acts">${nrHtml(j)}${tickHtml(j)}</td></tr>`;
 }
 function detailHtml(j){
   const sub = j.subscores||{};
@@ -566,6 +574,47 @@ function tickHtml(j){
   const t = D.online ? 'Mark jobs as applied in the dashboard on your PC' : on ? (m.a.pending ? 'Applied (saving…) – click to undo' : 'Applied – click to undo') : 'Tick when you have applied';
   return `<button class="tick" data-tick="${j.id}" aria-pressed="${on}" title="${t}" aria-label="${t}" ${D.online ? 'disabled' : ''}>✓</button>`;
 }
+/* ---------------- "Not relevant": ✕ on a row hides that job, its reposts and other sources' copies of the same role.
+   Saved like Applied ticks: database (local server), quick ticks (online copy, synced to every device), else this browser. */
+const NRL = R.eu ? 'jobradar.eu.nr.v1' : 'jobradar.nr.v1';
+const NR = new Map((D.not_relevant || []).map(x => [x.job_id, x]));
+function nrGet(){ try { return JSON.parse(localStorage.getItem(NRL) || '{}') || {}; } catch(e) { return {}; } }
+function nrSet(o){ try { localStorage.setItem(NRL, JSON.stringify(o)); } catch(e) {} }
+{ const o = nrGet(), keep = {}, sync = D.cloud;   // cloud: forget changes a scan has already saved (or older than a week)
+  for (const [id, p] of Object.entries(o)) { const k = +id; if (!p) continue;
+    if (sync && (Date.now() - p.at > 7 * DAY || p.on === NR.has(k))) continue;
+    keep[id] = p; if (p.on) NR.set(k, p.snap || {job_id: k}); else NR.delete(k); }
+  nrSet(keep); }
+function nrFor(j){
+  if (NR.has(j.id)) return {a: NR.get(j.id), self: true};
+  for (const a of NR.values()) {
+    const sameCo = (a.company_id && a.company_id === j.company_id) || (normCo(a.company) && normCo(a.company) === normCo(j.company_display));
+    if (sameCo && ((a.fingerprint && a.fingerprint === j.fingerprint) || jacc(a.norm_title || a.title, j.norm_title || j.title) >= 0.85))
+      return {a, self: false};
+  }
+  return null;
+}
+function nrHtml(j){
+  const m = nrFor(j), on = !!(m && m.self);
+  const t = on ? 'Marked not relevant – click to undo' : m ? 'Same role as a job you marked not relevant – click to hide this one too' : 'Not relevant – hide this job';
+  return `<button class="tick nr" data-nr="${j.id}" aria-pressed="${on}" title="${t}" aria-label="${t}">✕</button>`;
+}
+async function setNotRelevant(id, on){
+  const j = D.jobs.find(x => x.id === id);
+  const snap = j ? {job_id: id, company_id: j.company_id, company: j.company_display, title: j.title, norm_title: j.norm_title, fingerprint: j.fingerprint} : {job_id: id};
+  if (on) NR.set(id, snap); else NR.delete(id);
+  if (API) {
+    try { const r = await fetch('/api/notrelevant', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-JobRadar': '1'}, body: JSON.stringify({job_id: id, on})});
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      const d = await r.json(); NR.clear(); (d.not_relevant || []).forEach(x => NR.set(x.job_id, x));
+    } catch(e) { toast('Could not save that (' + e.message + ')', true); }
+  } else {
+    const o = nrGet(); o[id] = {on, at: Date.now(), snap}; nrSet(o);
+    if (D.cloud) queueTick(R.eu ? {nr: id, on, r: 'eu'} : {nr: id, on});
+  }
+  refreshAll();
+  if (on && !D.cloud) toast('Hidden ✓ – untick "hide jobs I marked not relevant" to undo');
+}
 /* ---------------- cloud "quick ticks": an encrypted tick is sent to the 'JobRadar tick' workflow with a GitHub key
    that can only run workflows in this one repository. The key stays in this browser; the next scan applies the tick. */
 const GHK = 'jobradar.ghtoken', TQ = 'jobradar.tickq';
@@ -590,10 +639,10 @@ async function sealTick(items){
   return btoa(bin).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
 }
 let tqTimer = null;
-const tkKey = x => x.sk ? 'sk:' + String(x.sk).toLowerCase() : x.id;
+const tkKey = x => x.sk ? 'sk:' + String(x.sk).toLowerCase() : x.nr != null ? 'nr:' + x.nr : x.id;
 function queueTick(item){
   const q = tqGet().filter(x => tkKey(x) !== tkKey(item)); q.push(item); tqSet(q);
-  if (!ghToken()) { if (!item.sk) show('app'); toast('Saved on this device – connect quick ticks (Applied tab) to save it for good', true); return; }
+  if (!ghToken()) { if (item.id != null) show('app'); toast('Saved on this device – connect quick ticks (Applied tab) to save it for good', true); return; }
   clearTimeout(tqTimer); tqTimer = setTimeout(flushTicks, 1200);
 }
 async function flushTicks(){
@@ -613,7 +662,7 @@ async function flushTicks(){
           headers: {'Authorization': 'Bearer ' + tok, 'Accept': 'application/vnd.github+json', 'Content-Type': 'application/json'},
           body: JSON.stringify({ref: 'main', inputs: {quick: 'true'}})}); } catch(x) {}   // if this fails, the next scan rebuilds them
       toast('Saved ✓ – your CV will be ready in about 5 minutes');
-    } else toast('Saved ✓');
+    } else toast(q.some(x => x.nr != null && x.on) ? 'Hidden ✓ – synced to your other devices' : 'Saved ✓');
   } catch(e) { toast(e.message === 'nokey' ? 'Open the dashboard from your private link first' : 'Could not save the tick (' + e.message + ') – check your quick-tick key', true); }
 }
 function tickPanel(el){
@@ -645,11 +694,11 @@ const open = new Set();
 let tab = 'rel';
 function renderJobs(){
   const q = $('q').value.trim().toLowerCase(), min = +$('min').value, inel = $('inel').checked, leads = $('leads').checked;
-  const ageSel = $('age').value, undated = $('undated').checked, byNew = $('sort').value === 'new', hideApp = $('hideapp').checked;
+  const ageSel = $('age').value, undated = $('undated').checked, byNew = $('sort').value === 'new', hideApp = $('hideapp').checked, hideNr = $('hidenr').checked;
   const visaSel = $('visa')?.value || '', reloc = !!$('reloc')?.checked, payok = !!$('payok')?.checked, ctry = $('ctry')?.value || '';
   $('minv').textContent = min.toFixed(1);
   const list = D.jobs.filter(j => j.score >= min && (inel || eligible(j)) && (leads || j.is_official)
-    && (!hideApp || !appFor(j))
+    && (!hideApp || !appFor(j)) && (!hideNr || !nrFor(j))
     && postedOk(j, ageSel, undated) && (!R.eu || visaOk(j, visaSel, reloc, payok, ctry))
     && (!q || (j.title+' '+j.company_display+' '+(j.matched_skills||[]).join(' ')).toLowerCase().includes(q)));
   list.sort(byNew ? (a, b) => ((postedTs(b) ?? -1) - (postedTs(a) ?? -1)) || (b.score - a.score)
@@ -663,10 +712,12 @@ $('jobs').addEventListener('click', e => {
   if (sk) { e.stopPropagation(); setSkill(sk.dataset.sk, +sk.dataset.job, sk.dataset.on === '1'); return; }
   const tk = e.target.closest('[data-tick]');
   if (tk) { e.stopPropagation(); const id = +tk.dataset.tick; setApplied(id, tk.getAttribute('aria-pressed') !== 'true'); return; }
+  const nb = e.target.closest('[data-nr]');
+  if (nb) { e.stopPropagation(); setNotRelevant(+nb.dataset.nr, nb.getAttribute('aria-pressed') !== 'true'); return; }
   const tr = e.target.closest('tr.job'); if(!tr || e.target.closest('a')) return;
   const id = +tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); renderJobs(); });
 $('jobs').addEventListener('keydown', e => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); e.target.closest('tr.job')?.click(); } });
-['q','min','inel','leads','sort','age','undated','hideapp','ctry','visa','reloc','payok'].forEach(id => $(id)?.addEventListener('input', renderJobs));
+['q','min','inel','leads','sort','age','undated','hideapp','hidenr','ctry','visa','reloc','payok'].forEach(id => $(id)?.addEventListener('input', renderJobs));
 
 /* ---------------- companies */
 const ATS = {greenhouse:'Greenhouse',lever:'Lever',ashby:'Ashby',smartrecruiters:'SmartRecruiters',workable:'Workable',workday:'Workday',
@@ -741,7 +792,8 @@ $('apps').addEventListener('click', e => { const b = e.target.closest('[data-unt
 $('apps').addEventListener('change', e => { const s = e.target.closest('[data-stage]'); if (s) setApplied(+s.dataset.stage, true, s.value); });
 function counts(){
   $('n-app').textContent = fmt(APPS.size);
-  $('n-rel').textContent = fmt(relevant.filter(j => !appFor(j)).length);
+  $('n-rel').textContent = fmt(relevant.filter(j => !appFor(j) && !nrFor(j)).length);
+  const h = D.jobs.filter(j => nrFor(j)).length; $('nrn').textContent = h ? '(' + fmt(h) + ')' : '';
 }
 function refreshAll(){ counts(); if (tab === 'app') renderApps(); else if (tab !== 'co' && tab !== 'log') renderJobs(); }
 
@@ -767,6 +819,12 @@ if (D.cloud) { const p = document.createElement('p'); p.className = 'foot';
 if (LOCALHOST && !D.online && !D.cloud) api().then(async () => {   // server is running: copy browser-only ticks into the database
   API = true; const o = lsGet(), items = Object.entries(o).map(([id, a]) => a && a.removed ? {job_id: +id, applied: false} : {job_id: +id, applied: true, status: a && a.status});
   if (items.length) { try { await api({items}); lsSet({}); } catch(e) {} }
+  const nrLeft = {};
+  for (const [id, p] of Object.entries(nrGet())) {   // browser-only "Not relevant" marks → database
+    try { const r = await fetch('/api/notrelevant', {method: 'POST', headers: {'Content-Type': 'application/json', 'X-JobRadar': '1'}, body: JSON.stringify({job_id: +id, on: !!(p && p.on)})});
+      if (!r.ok) throw new Error(); const d = await r.json(); NR.clear(); (d.not_relevant || []).forEach(x => NR.set(x.job_id, x));
+    } catch(e) { nrLeft[id] = p; } }
+  nrSet(nrLeft);
   refreshAll(); if (tab === 'app') renderApps();
 }).catch(() => { API = false; });
 })();

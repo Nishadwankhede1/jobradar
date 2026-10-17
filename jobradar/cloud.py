@@ -88,10 +88,10 @@ button{margin-top:10px;font:600 15px system-ui;padding:10px 14px;border:0;border
 def apply_ticks(runs_json: Path, db) -> int:
     """Ticks sent from the dashboard arrive as titles of 'JobRadar tick' runs: "tick <base64url(JR1 ciphertext)>".
     Each payload is a JSON list of {"id": job_id, "on": bool, "st": stage} (applied ticks) or {"sk": keyword, "on": bool}
-    (skills you confirmed for your CVs). Only payloads that decrypt with your key
+    (skills you confirmed for your CVs) or {"nr": job_id, "on": bool} (jobs you marked "Not relevant"). Only payloads that decrypt with your key
     are accepted (nobody else can forge one), and each run is applied once."""
     import base64
-    from .applications import STATUSES, set_applied
+    from .applications import STATUSES, set_applied, set_not_relevant
     from .region import REGION
     key = parse_key()
     runs = (json.loads(Path(runs_json).read_text(encoding="utf-8")) or {}).get("workflow_runs") or []
@@ -113,6 +113,13 @@ def apply_ticks(runs_json: Path, db) -> int:
                 n += bool(set_user_skill(db, str(it["sk"]), bool(it.get("on", True))))
                 continue
             if (it.get("r") or "uae") != REGION:  # an Applied tick from the other dashboard (UAE ↔ Europe)
+                continue
+            if it.get("nr") is not None:  # "Not relevant" – hide this job (and its reposts) for good
+                try:
+                    set_not_relevant(db, int(it["nr"]), bool(it.get("on", True)))
+                    n += 1
+                except (KeyError, ValueError, TypeError):
+                    pass
                 continue
             try:
                 st = it.get("st") if it.get("st") in STATUSES else None
