@@ -96,7 +96,7 @@ def region_info() -> dict:
 # Europe instance: UAE wording / time zone / LinkedIn geography swapped at render time (each must exist – see tests)
 EU_TEXT = [
     ("<title>JobRadar Dubai</title>", "<title>JobRadar Europe</title>"),
-    ("<h1>Job<span>Radar</span> · Dubai</h1>", "<h1>Job<span>Radar</span> · Europe</h1>"),
+    ("<h1>Job<span>Radar</span> · Dubai</h1>", "<h1>Job<span>Radar</span> · NL &amp; UK</h1>"),
     ("All UAE jobs <span", "All jobs <span"),
     ('<th class="num">UAE jobs</th>', '<th class="num">Jobs here</th>'),
     ('"UAE jobs" is the count', '"Jobs here" is the count'),
@@ -106,9 +106,9 @@ EU_TEXT = [
      "English-speaking employers in ' + R.place + ' that can sponsor a visa (you: Indian passport, relocating from Dubai)"),
     ("'employers in Dubai & the UAE'", "'employers watched in ' + R.place"),
     ("['UAE jobs found'", "['Jobs found'"),
-    ("Who to contact (LinkedIn, UAE)", "Who to contact (LinkedIn, Netherlands)"),
-    ("const UAE = '%5B%22104305776%22%5D';", "const UAE = '%5B%22102890719%22%5D';"),
-    ("(Dubai OR UAE)", "(Netherlands OR Amsterdam)"),
+    ("Who to contact (LinkedIn, UAE)", "Who to contact (LinkedIn, Netherlands & UK)"),
+    ("const UAE = '%5B%22104305776%22%5D';", "const UAE = '%5B%22102890719%22%2C%22101165590%22%5D';"),
+    ("(Dubai OR UAE)", "(Netherlands OR Amsterdam OR London OR \"United Kingdom\")"),
     # both pages live on the same site → keep this page's Applied state and tick queue separate from the UAE page
     ("const LS = 'jobradar.applied.v1';", "const LS = 'jobradar.eu.applied.v1';"),
     ("const PEND = 'jobradar.pending.v1';", "const PEND = 'jobradar.eu.pending.v1';"),
@@ -267,7 +267,8 @@ BODY = r"""
       <label for="undated" title="Some sources (e.g. LinkedIn alert e-mails) don't publish a posting date – include them using the date JobRadar first saw them"><input type="checkbox" id="undated"> include jobs with no portal date</label>
       <label for="leads"><input type="checkbox" id="leads" checked> include LinkedIn / e-mail leads</label>
       <label for="hideapp"><input type="checkbox" id="hideapp" checked> hide jobs I applied to</label>
-      <label for="visa" class="eu-only" title="Official sponsor = on the government register (NL: IND recognised sponsors). Ad = the job ad offers visa sponsorship.">Visa <select id="visa"><option value="">any</option><option value="likely">can sponsor (list or ad)</option><option value="register">official sponsor list</option><option value="ad">ad offers sponsorship</option></select></label>
+      <label for="ctry" class="eu-only">Country <select id="ctry"><option value="">all</option><option value="nl">Netherlands</option><option value="uk">United Kingdom</option><option value="remote">Remote (Europe)</option></select></label>
+      <label for="visa" class="eu-only" title="Official sponsor = on the government register (NL: IND recognised sponsors; UK: Home Office licensed sponsors, Skilled Worker). Ad = the job ad offers visa sponsorship.">Visa <select id="visa"><option value="">any</option><option value="likely">can sponsor (list or ad)</option><option value="register">official sponsor list</option><option value="ad">ad offers sponsorship</option></select></label>
       <label for="reloc" class="eu-only"><input type="checkbox" id="reloc"> relocation offered</label>
       <label for="payok" class="eu-only" title="Hide jobs whose stated pay is below the visa salary minimum"><input type="checkbox" id="payok"> pay meets visa minimum</label>
       <span class="shown" id="jshown"></span>
@@ -317,7 +318,7 @@ if (!R.eu) document.querySelectorAll('.eu-only').forEach(e => e.remove());
 function visaChips(j){
   const v = j.visa; if (!R.eu || !v) return '';
   const c = [];
-  if (v.register) c.push('<span class="chip good" title="' + esc('On the IND public register of recognised sponsors: ' + v.register) + '">✓ Official sponsor</span>');
+  if (v.register) c.push('<span class="chip good" title="' + esc((v.register_src || 'Official sponsor register') + ': ' + v.register) + '">✓ Official sponsor</span>');
   if (v.ad === 'offers') c.push('<span class="chip good" title="' + esc(v.ad_quote || '') + '">✓ Visa offered</span>');
   if (v.ad === 'refuses') c.push('<span class="chip bad" title="' + esc(v.ad_quote || '') + '">✕ No sponsorship</span>');
   if (!v.register && !v.ad) c.push('<span class="chip warn">Sponsor unknown</span>');
@@ -329,15 +330,16 @@ function visaChips(j){
 function visaDetail(j){
   const v = j.visa; if (!R.eu || !v) return '';
   const rows = [
-    ['Official sponsor list', v.register ? '✓ ' + v.register + ' (IND recognised sponsor)' : 'Not found on the IND list'],
+    ['Official sponsor list', v.register ? '✓ ' + v.register + ' (' + (v.register_src || 'official register') + ')' : (v.country === 'uk' ? 'Not found on the UK Home Office sponsor list' : 'Not found on the IND list')],
     ['Job ad', v.ad === 'offers' ? '✓ offers sponsorship – “' + (v.ad_quote||'') + '”' : v.ad === 'refuses' ? '✕ “' + (v.ad_quote||'') + '”' : 'Doesn\'t mention visas'],
     ['Relocation', v.relocation ? '✓ mentioned in the ad' : 'Not mentioned'],
-    ['Pay vs visa minimum', v.salary_month ? '≈ €' + v.salary_month.toLocaleString() + '/month vs €' + (v.salary_floor||'?').toLocaleString() + (v.salary_ok ? ' ✓' : ' ⚠ below') : 'Pay not stated'],
+    ['Pay vs visa minimum', v.salary_month ? '≈ €' + v.salary_month.toLocaleString() + '/month vs €' + (v.salary_floor||'?').toLocaleString() + (v.country === 'uk' ? ' (UK: £41,700 a year)' : '') + (v.salary_ok ? ' ✓' : ' ⚠ below') : 'Pay not stated'],
     ['Language of the ad', v.language === 'en' ? 'English' : v.language ? v.language.toUpperCase() : 'Too short to tell']];
   return '<h3 style="margin-top:12px">Visa &amp; relocation</h3><ul>' + rows.map(([k, x]) => `<li><b>${esc(k)}:</b> ${esc(x)}</li>`).join('') + '</ul>';
 }
-function visaOk(j, sel, reloc, payok){
+function visaOk(j, sel, reloc, payok, ctry){
   const v = j.visa || {};
+  if (ctry && v.country !== ctry) return false;
   if (sel === 'likely' && !(v.register || v.ad === 'offers')) return false;
   if (sel === 'register' && !v.register) return false;
   if (sel === 'ad' && v.ad !== 'offers') return false;
@@ -644,11 +646,11 @@ let tab = 'rel';
 function renderJobs(){
   const q = $('q').value.trim().toLowerCase(), min = +$('min').value, inel = $('inel').checked, leads = $('leads').checked;
   const ageSel = $('age').value, undated = $('undated').checked, byNew = $('sort').value === 'new', hideApp = $('hideapp').checked;
-  const visaSel = $('visa')?.value || '', reloc = !!$('reloc')?.checked, payok = !!$('payok')?.checked;
+  const visaSel = $('visa')?.value || '', reloc = !!$('reloc')?.checked, payok = !!$('payok')?.checked, ctry = $('ctry')?.value || '';
   $('minv').textContent = min.toFixed(1);
   const list = D.jobs.filter(j => j.score >= min && (inel || eligible(j)) && (leads || j.is_official)
     && (!hideApp || !appFor(j))
-    && postedOk(j, ageSel, undated) && (!R.eu || visaOk(j, visaSel, reloc, payok))
+    && postedOk(j, ageSel, undated) && (!R.eu || visaOk(j, visaSel, reloc, payok, ctry))
     && (!q || (j.title+' '+j.company_display+' '+(j.matched_skills||[]).join(' ')).toLowerCase().includes(q)));
   list.sort(byNew ? (a, b) => ((postedTs(b) ?? -1) - (postedTs(a) ?? -1)) || (b.score - a.score)
                   : (a, b) => (b.score - a.score) || ((postedTs(b) ?? -1) - (postedTs(a) ?? -1)));
@@ -664,7 +666,7 @@ $('jobs').addEventListener('click', e => {
   const tr = e.target.closest('tr.job'); if(!tr || e.target.closest('a')) return;
   const id = +tr.dataset.id; open.has(id) ? open.delete(id) : open.add(id); renderJobs(); });
 $('jobs').addEventListener('keydown', e => { if (e.key==='Enter' || e.key===' ') { e.preventDefault(); e.target.closest('tr.job')?.click(); } });
-['q','min','inel','leads','sort','age','undated','hideapp','visa','reloc','payok'].forEach(id => $(id)?.addEventListener('input', renderJobs));
+['q','min','inel','leads','sort','age','undated','hideapp','ctry','visa','reloc','payok'].forEach(id => $(id)?.addEventListener('input', renderJobs));
 
 /* ---------------- companies */
 const ATS = {greenhouse:'Greenhouse',lever:'Lever',ashby:'Ashby',smartrecruiters:'SmartRecruiters',workable:'Workable',workday:'Workday',
