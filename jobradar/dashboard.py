@@ -20,13 +20,13 @@ def coverage_stats(db: Database, notify_threshold: float = 7.0) -> dict:
                     "AND j.duplicate_of IS NULL AND s.stage_a_pass=1 AND s.score >= ?", (notify_threshold,))
     return {
         "generated_at": now_iso(),
-        "companies_discovered": s("SELECT COUNT(*) FROM companies WHERE kind='employer' AND enabled=1"),
+        "companies_discovered": s("SELECT COUNT(*) FROM companies WHERE (kind='employer' OR (kind='lead' AND ats='auto')) AND enabled=1"),
         "uae_jobs_last_check": s("SELECT COALESCE(SUM(s.last_job_count),0) FROM sources s JOIN companies c ON c.id=s.company_id "
                                  "WHERE c.enabled=1 AND s.last_status IN ('ok','not_modified','partial')"),
         "jobs_new_24h": s("SELECT COUNT(*) FROM jobs WHERE status='active' AND duplicate_of IS NULL AND first_seen_at >= ?",
                           (iso(utcnow() - timedelta(hours=24)),)),
         "companies_from_leads": s("SELECT COUNT(*) FROM companies WHERE kind = 'lead'"),
-        "companies_with_feed": s("SELECT COUNT(*) FROM companies WHERE kind='employer' AND ats NOT IN ('manual','email') AND enabled=1"),
+        "companies_with_feed": s("SELECT COUNT(*) FROM companies WHERE (kind='employer' OR (kind='lead' AND ats='auto')) AND ats NOT IN ('manual','email') AND enabled=1"),
         "sources_monitored_ok": s(f"SELECT COUNT(*) FROM sources s JOIN companies c ON c.id=s.company_id WHERE c.enabled=1 AND s.last_status IN {OK_STATES}"),
         "sources_failing": s("SELECT COUNT(*) FROM sources s JOIN companies c ON c.id=s.company_id WHERE c.enabled=1 AND s.last_status='error'"),
         "sources_unmonitorable": s("SELECT COUNT(*) FROM sources s JOIN companies c ON c.id=s.company_id WHERE c.enabled=1 AND c.kind='employer' AND s.last_status='unmonitored'"),
@@ -71,7 +71,7 @@ def dashboard_data(db: Database, settings) -> dict:
         (SELECT MAX(sc.score) FROM jobs j JOIN scores sc ON sc.job_id=j.id WHERE j.company_id=c.id AND j.status='active'
            AND j.duplicate_of IS NULL AND sc.hard_disqualifiers IN ('[]','')) AS best_score
         FROM companies c LEFT JOIN sources s ON s.company_id=c.id
-        WHERE c.kind = 'employer' AND c.enabled=1
+        WHERE (c.kind = 'employer' OR (c.kind = 'lead' AND c.ats = 'auto')) AND c.enabled=1
         ORDER BY CASE s.last_status WHEN 'error' THEN 0 WHEN 'partial' THEN 1 ELSE 2 END, c.priority, c.name""")
     runs = db.q("SELECT * FROM scan_runs ORDER BY id DESC LIMIT 30")
     from .applications import all_applications, not_relevant
@@ -96,7 +96,7 @@ def region_info() -> dict:
 # Europe instance: UAE wording / time zone / LinkedIn geography swapped at render time (each must exist – see tests)
 EU_TEXT = [
     ("<title>JobRadar Dubai</title>", "<title>JobRadar Europe</title>"),
-    ("<h1>Job<span>Radar</span> · Dubai</h1>", "<h1>Job<span>Radar</span> · NL &amp; UK</h1>"),
+    ("<h1>Job<span>Radar</span> · Dubai</h1>", "<h1>Job<span>Radar</span> · __EU_CODES__</h1>"),
     ("All UAE jobs <span", "All jobs <span"),
     ('<th class="num">UAE jobs</th>', '<th class="num">Jobs here</th>'),
     ('"UAE jobs" is the count', '"Jobs here" is the count'),
@@ -106,9 +106,9 @@ EU_TEXT = [
      "English-speaking employers in ' + R.place + ' that can sponsor a visa (you: Indian passport, relocating from Dubai)"),
     ("'employers in Dubai & the UAE'", "'employers watched in ' + R.place"),
     ("['UAE jobs found'", "['Jobs found'"),
-    ("Who to contact (LinkedIn, UAE)", "Who to contact (LinkedIn, Netherlands & UK)"),
-    ("const UAE = '%5B%22104305776%22%5D';", "const UAE = '%5B%22102890719%22%2C%22101165590%22%5D';"),
-    ("(Dubai OR UAE)", "(Netherlands OR Amsterdam OR London OR \"United Kingdom\")"),
+    ("Who to contact (LinkedIn, UAE)", "Who to contact (LinkedIn, Netherlands, Germany & UK)"),
+    ("const UAE = '%5B%22104305776%22%5D';", "const UAE = '%5B%22102890719%22%2C%22101282230%22%2C%22101165590%22%5D';"),
+    ("(Dubai OR UAE)", "(Netherlands OR Amsterdam OR Germany OR Berlin OR Munich OR London OR \"United Kingdom\")"),
     # both pages live on the same site → keep this page's Applied state and tick queue separate from the UAE page
     ("const LS = 'jobradar.applied.v1';", "const LS = 'jobradar.eu.applied.v1';"),
     ("const PEND = 'jobradar.pending.v1';", "const PEND = 'jobradar.eu.pending.v1';"),
@@ -121,8 +121,10 @@ def _eu_page(html_text: str) -> str:
     from datetime import datetime
     from zoneinfo import ZoneInfo
     off = datetime.now(ZoneInfo("Europe/Amsterdam")).utcoffset().total_seconds() / 3600
+    from .region import enabled_countries
+    codes = " · ".join(c.upper() for c in enabled_countries() if c in ("nl", "de", "uk")) or "Europe"
     for a, b in EU_TEXT + [("const GST = 4 * 3600000;", f"const GST = {off:g} * 3600000;")]:
-        html_text = html_text.replace(a, b)
+        html_text = html_text.replace(a, b.replace("__EU_CODES__", codes))
     return html_text
 
 
@@ -272,8 +274,8 @@ BODY = r"""
       <label for="leads"><input type="checkbox" id="leads" checked> include LinkedIn / e-mail leads</label>
       <label for="hideapp"><input type="checkbox" id="hideapp" checked> hide jobs I applied to</label>
       <label for="hidenr" title="Jobs you marked ✕ Not relevant – and reposts of the same role at the same employer"><input type="checkbox" id="hidenr" checked> hide jobs I marked not relevant <span class="mono" id="nrn"></span></label>
-      <label for="ctry" class="eu-only">Country <select id="ctry"><option value="">all</option><option value="nl">Netherlands</option><option value="uk">United Kingdom</option><option value="remote">Remote (Europe)</option></select></label>
-      <label for="visa" class="eu-only" title="Official sponsor = on the government register (NL: IND recognised sponsors; UK: Home Office licensed sponsors, Skilled Worker). Ad = the job ad offers visa sponsorship.">Visa <select id="visa"><option value="">any</option><option value="likely">can sponsor (list or ad)</option><option value="register">official sponsor list</option><option value="ad">ad offers sponsorship</option></select></label>
+      <label for="ctry" class="eu-only">Country <select id="ctry"><option value="">all</option><option value="nl">Netherlands</option><option value="de">Germany</option><option value="uk">United Kingdom</option><option value="remote">Remote (Europe)</option></select></label>
+      <label for="visa" class="eu-only" title="Official sponsor = on the government register (NL: IND recognised sponsors; UK: Home Office licensed sponsors, Skilled Worker). Germany has no register – any employer can hire you on an EU Blue Card. Ad = the job ad offers visa sponsorship.">Visa <select id="visa"><option value="">any</option><option value="likely">can sponsor (list, Blue Card or ad)</option><option value="register">official sponsor list / Blue Card</option><option value="ad">ad offers sponsorship</option></select></label>
       <label for="reloc" class="eu-only"><input type="checkbox" id="reloc"> relocation offered</label>
       <label for="payok" class="eu-only" title="Hide jobs whose stated pay is below the visa salary minimum"><input type="checkbox" id="payok"> pay meets visa minimum</label>
       <span class="shown" id="jshown"></span>
@@ -326,7 +328,8 @@ function visaChips(j){
   if (v.register) c.push('<span class="chip good" title="' + esc((v.register_src || 'Official sponsor register') + ': ' + v.register) + '">✓ Official sponsor</span>');
   if (v.ad === 'offers') c.push('<span class="chip good" title="' + esc(v.ad_quote || '') + '">✓ Visa offered</span>');
   if (v.ad === 'refuses') c.push('<span class="chip bad" title="' + esc(v.ad_quote || '') + '">✕ No sponsorship</span>');
-  if (!v.register && !v.ad) c.push('<span class="chip warn">Sponsor unknown</span>');
+  if (v.blue_card && v.ad !== 'refuses') c.push('<span class="chip good" title="Germany: any employer can hire you on an EU Blue Card if the pay is at least €45,934 a year (IT) – no sponsor licence needed">✓ Blue Card route</span>');
+  else if (!v.register && !v.ad) c.push('<span class="chip warn">Sponsor unknown</span>');
   if (v.relocation) c.push('<span class="chip good">✈ Relocation</span>');
   if (v.salary_ok === false) c.push('<span class="chip warn" title="Visa minimum ≈ €' + v.salary_floor + '/month">Pay below visa min</span>');
   if (v.language && v.language !== 'en') c.push('<span class="chip bad">Ad not in English</span>');
@@ -335,18 +338,19 @@ function visaChips(j){
 function visaDetail(j){
   const v = j.visa; if (!R.eu || !v) return '';
   const rows = [
-    ['Official sponsor list', v.register ? '✓ ' + v.register + ' (' + (v.register_src || 'official register') + ')' : (v.country === 'uk' ? 'Not found on the UK Home Office sponsor list' : 'Not found on the IND list')],
+    ['Official sponsor list', v.register ? '✓ ' + v.register + ' (' + (v.register_src || 'official register') + ')' : v.blue_card ? 'Not needed in Germany – any employer can hire you on an EU Blue Card' : (v.country === 'uk' ? 'Not found on the UK Home Office sponsor list' : 'Not found on the IND list')],
     ['Job ad', v.ad === 'offers' ? '✓ offers sponsorship – “' + (v.ad_quote||'') + '”' : v.ad === 'refuses' ? '✕ “' + (v.ad_quote||'') + '”' : 'Doesn\'t mention visas'],
     ['Relocation', v.relocation ? '✓ mentioned in the ad' : 'Not mentioned'],
-    ['Pay vs visa minimum', v.salary_month ? '≈ €' + v.salary_month.toLocaleString() + '/month vs €' + (v.salary_floor||'?').toLocaleString() + (v.country === 'uk' ? ' (UK: £41,700 a year)' : '') + (v.salary_ok ? ' ✓' : ' ⚠ below') : 'Pay not stated'],
+    ['Pay vs visa minimum', v.salary_month ? '≈ €' + v.salary_month.toLocaleString() + '/month vs €' + (v.salary_floor||'?').toLocaleString() + (v.country === 'uk' ? ' (UK: £41,700 a year)' : v.country === 'de' ? ' (Germany: €45,934 a year for IT roles)' : '') + (v.salary_ok ? ' ✓' : ' ⚠ below') : 'Pay not stated'],
     ['Language of the ad', v.language === 'en' ? 'English' : v.language ? v.language.toUpperCase() : 'Too short to tell']];
   return '<h3 style="margin-top:12px">Visa &amp; relocation</h3><ul>' + rows.map(([k, x]) => `<li><b>${esc(k)}:</b> ${esc(x)}</li>`).join('') + '</ul>';
 }
 function visaOk(j, sel, reloc, payok, ctry){
   const v = j.visa || {};
   if (ctry && v.country !== ctry) return false;
-  if (sel === 'likely' && !(v.register || v.ad === 'offers')) return false;
-  if (sel === 'register' && !v.register) return false;
+  const bc = v.blue_card && v.ad !== 'refuses';
+  if (sel === 'likely' && !(v.register || bc || v.ad === 'offers')) return false;
+  if (sel === 'register' && !(v.register || bc)) return false;
   if (sel === 'ad' && v.ad !== 'offers') return false;
   if (reloc && !v.relocation) return false;
   if (payok && v.salary_ok === false) return false;

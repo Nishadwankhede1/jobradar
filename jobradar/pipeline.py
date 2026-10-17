@@ -62,6 +62,30 @@ def sync_companies(db: Database, settings: Settings, companies: list[dict] | Non
     return len(companies)
 
 
+def promote_lead_employers(db: Database, limit: int) -> list[str]:
+    """Employers we only know from leads (LinkedIn / e-mail alerts, job-board searches) → start reading their own careers
+    feed with the 'auto' adapter, so no employer that posts relevant jobs is left unwatched. Busiest first, agencies never,
+    at most `limit` per scan (a feed that isn't found is re-probed weekly, so this stays light)."""
+    if limit <= 0:
+        return []
+    rows = db.q("""SELECT c.id, c.name, COUNT(j.id) AS n, MAX(s.score) AS best FROM companies c
+        JOIN jobs j ON j.company_id = c.id AND j.status = 'active' AND j.duplicate_of IS NULL AND COALESCE(j.is_agency, 0) = 0
+        LEFT JOIN scores s ON s.job_id = j.id
+        WHERE c.kind = 'lead' AND c.enabled = 1 AND COALESCE(c.ats, 'manual') = 'manual'
+        GROUP BY c.id ORDER BY n DESC, best DESC LIMIT ?""", (limit,))
+    now = now_iso()
+    for r in rows:
+        db.update("companies", {"id": r["id"]}, {"ats": "auto", "ats_config": {}, "updated_at": now,
+                  "verification_note": "Found through job leads (LinkedIn / e-mail alerts, job boards) – now reading its own "
+                                       "careers feed when it has a public one (re-checked weekly if not)"})
+        db.update("sources", {"company_id": r["id"]}, {"last_status": None, "next_due_at": None, "baseline_done": 0,
+                                                     "consecutive_failures": 0})
+    if rows:
+        db.commit()
+        log.info("now following %d employer(s) found through leads: %s", len(rows), ", ".join(r["name"] for r in rows))
+    return [r["name"] for r in rows]
+
+
 def merge_duplicate_leads(db: Database) -> int:
     """Auto-created lead employers that differ only by spelling (accents, apostrophes) → fold into one."""
     known = {}
@@ -318,6 +342,8 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
     t0 = time.monotonic()
     started = now_iso()
     sync_companies(db, settings, companies)
+    if not only:
+        promote_lead_employers(db, int(settings.get("sources", "promote_leads_per_scan", 0) or 0))
     if os.environ.get("JOBRADAR_TELEGRAM_COMMANDS") == "1":  # cloud: apply /applied_… taps before scoring and alerts
         from .notify.commands import process_commands
         process_commands(db, http)
