@@ -173,6 +173,11 @@ def main():
             if c != "nl":
                 e["id"] = f"{base['id']}-{c}"
             out.append(e)
+    if "de" in countries:  # Germany's national job board (Bundesagentur für Arbeit) – nearly every German vacancy
+        out.append({"id": "ba-jobsuche-de", "name": "Bundesagentur für Arbeit job portal (Germany)", "ats": "ba_jobsuche",
+                    "kind": "aggregator", "priority": 2, "industry": "", "ats_config": {"days": 14, "pages": 2, "queries": [
+                        "data analyst", "business intelligence", "power bi", "bi analyst", "bi developer",
+                        "analytics engineer", "reporting analyst", "data engineer", "crm analyst"]}})
     (ROOT / "config" / "companies_eu.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"{len(out)} sources written: {sum(1 for x in out if x['ats'] == 'auto')} auto-discovered employers, "
           f"{sum(1 for x in out if x.get('discovered_in', '').startswith('companies.json'))} global feeds, "
