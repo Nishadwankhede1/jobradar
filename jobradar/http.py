@@ -159,7 +159,8 @@ class HttpClient:
     # Shared ATS servers rate-limit per caller, not per employer: every *.wd3.myworkdayjobs.com tenant (or Oracle HCM pod)
     # is one server, so they share one pace. (host pattern → (group key, seconds between requests))
     SHARED_HOSTS = [(re.compile(r"(?:^|\.)(wd\d+\.myworkdayjobs\.com|wd\d+\.myworkdaysite\.com)$"), 1.5),
-                    (re.compile(r"(?:^|\.)(fa\.\w+\.oraclecloud\.com)$"), 1.2)]
+                    (re.compile(r"(?:^|\.)(fa\.\w+\.oraclecloud\.com)$"), 1.2),
+                    (re.compile(r"^(apply\.workable\.com)$"), 2.0)]   # all Workable employers share one server
 
     def _pace(self, host: str) -> tuple[str, float]:
         for rx, gap in self.SHARED_HOSTS:

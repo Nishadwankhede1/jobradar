@@ -304,16 +304,18 @@ def next_interval(settings: Settings, company: dict, src: dict, changed: bool, o
 
 # Errors produced by code that has since been fixed: sources stuck in back-off with one of these retry on the next scan
 # instead of waiting out the back-off (self-healing after an update). Each entry: (ats, LIKE pattern on last_error).
-HEALED_ERRORS = [("workday", "JSONDecodeError%"), ("%", "%run time budget exhausted%")]
+HEALED_ERRORS = [("workday", "JSONDecodeError%"), ("%", "%run time budget exhausted%"), ("%", "%HTTP 429 %")]
+HEALED_OK = ("%run time budget exhausted%", "%HTTP 429 %")   # not the employer's fault → not shown as failing
 
 
 def heal_sources(db: Database) -> int:
     n = 0
     for ats, pattern in HEALED_ERRORS:
-        cur = db.execute("UPDATE sources SET next_due_at=NULL, last_status=CASE WHEN last_error LIKE '%run time budget exhausted%' "
-                         "THEN 'ok' ELSE last_status END, consecutive_failures=CASE WHEN last_error LIKE '%run time budget exhausted%' "
-                         "THEN 0 ELSE consecutive_failures END WHERE last_status='error' AND last_error LIKE ? "
-                         "AND company_id IN (SELECT id FROM companies WHERE ats LIKE ?)", (pattern, ats))
+        okc = " OR ".join("last_error LIKE ?" for _ in HEALED_OK)
+        cur = db.execute(f"UPDATE sources SET next_due_at=NULL, last_status=CASE WHEN {okc} THEN 'ok' ELSE last_status END, "
+                         f"consecutive_failures=CASE WHEN {okc} THEN 0 ELSE consecutive_failures END WHERE last_status='error' "
+                         "AND last_error LIKE ? AND company_id IN (SELECT id FROM companies WHERE ats LIKE ?)",
+                         (*HEALED_OK, *HEALED_OK, pattern, ats))
         n += cur.rowcount or 0
     if n:
         db.commit()
@@ -396,6 +398,14 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
             stats["sources_checked"] -= 1
             db.update("sources", {"company_id": cid}, {"next_due_at": None})
             log.info("source %-28s deferred to next run (time budget)", company["name"][:28])
+            return
+        if err and "HTTP 429 " in err:
+            # the job board asked us to slow down (rate limit) → try again in an hour, not a failure
+            stats["sources_checked"] -= 1
+            db.update("sources", {"company_id": cid}, {"next_due_at": iso(utcnow() + timedelta(minutes=60)),
+                                                     "last_status": "partial" if src.get("last_status") == "error" else src.get("last_status"),
+                                                     "last_error": "rate-limited by the job board – retried in an hour"})
+            log.info("source %-28s rate-limited (HTTP 429) – retried in an hour", company["name"][:28])
             return
         if err:
             stats["sources_failed"] += 1
