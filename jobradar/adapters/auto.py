@@ -13,6 +13,19 @@ from ..http import HttpError, NotModified
 from .base import Adapter, AdapterResult, FetchContext, get_adapter, register
 
 REPROBE_SECONDS = 7 * 86400
+STATE_VERSION = 2   # v2: a feed only counts when it has open jobs (Workable keeps empty, dormant accounts for big names)
+
+
+def has_jobs(ats: str, data) -> bool:
+    """The board is live: it lists at least one open job (an empty board under a company's name proves nothing)."""
+    try:
+        if ats == "lever":
+            return isinstance(data, list) and len(data) > 0
+        if ats == "smartrecruiters":
+            return int(data.get("totalFound") or 0) > 0
+        return bool(data.get("jobs") or data.get("offers"))
+    except (AttributeError, TypeError, ValueError):
+        return False
 
 
 def slug_candidates(name: str, extra: list[str] | None = None) -> list[str]:
@@ -50,21 +63,36 @@ class AutoATS(Adapter):
                 try:
                     data = self.http.get_json(url)
                 except HttpError as e:
-                    if e.status == 0 and "budget" in str(e):
-                        raise
+                    if e.status == 429 or (e.status == 0 and "budget" in str(e)):
+                        raise   # rate-limited / out of time → probe again next run instead of "no feed"
                     continue
                 except (ValueError, NotModified):
                     continue
                 try:
-                    if ok(data):
+                    if ok(data) and has_jobs(ats, data):
                         return ats, conf
                 except (AttributeError, TypeError, ValueError):
                     continue
         return None
 
+    def _workable_live(self, found: dict) -> bool:
+        acct = (found.get("ats_config") or {}).get("account")
+        try:
+            return has_jobs("workable", self.http.get_json(f"https://apply.workable.com/api/v1/widget/accounts/{acct}"))
+        except HttpError as e:
+            if e.status == 404:
+                return False
+            raise   # rate-limited / network → decide on a later run
+
     def fetch(self, company, ctx: FetchContext) -> AdapterResult:
         st = ctx.state
         found = st.get("found")
+        if found and st.get("v") != STATE_VERSION:   # re-check matches made before empty boards were rejected
+            if found.get("ats") == "workable" and not self._workable_live(found):
+                st.pop("found", None)
+                st["probed_at"] = time.time()   # nothing else matched back then either → look again in a week
+                found = None
+            st["v"] = STATE_VERSION
         if not found and time.time() - float(st.get("probed_at") or 0) > REPROBE_SECONDS:
             hit = self.discover(company)
             st["probed_at"] = time.time()
