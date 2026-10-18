@@ -14,7 +14,7 @@ import json
 import logging
 import re
 
-from ..adapters.auto import _probes
+from ..adapters.auto import _probes, has_jobs as _has_jobs
 from ..http import HttpError, NotModified
 from ..scoring.sponsor import REGISTER_FILE, norm_org
 from ..util import now_iso, slugify
@@ -42,14 +42,6 @@ def slugs_for(name: str) -> list[str]:
     return [s for s in out if len(s) >= 4]
 
 
-def _has_jobs(ats: str, data) -> bool:
-    if ats == "lever":
-        return isinstance(data, list) and len(data) > 0
-    if ats == "smartrecruiters":
-        return int(data.get("totalFound") or 0) > 0
-    return bool(data.get("jobs") or data.get("offers"))
-
-
 def probe(http, name: str) -> tuple[str, dict] | None:
     for slug in slugs_for(name):
         for ats, conf, url, ok in _probes(slug, recruitee=True):
@@ -58,8 +50,8 @@ def probe(http, name: str) -> tuple[str, dict] | None:
                 if not (ok(data) and _has_jobs(ats, data)):
                     continue
             except HttpError as e:
-                if e.status == 0 and "budget" in str(e):
-                    raise
+                if e.status == 429 or (e.status == 0 and "budget" in str(e)):
+                    raise   # rate-limited / out of time → resume with this employer next scan
                 continue
             except (ValueError, NotModified, AttributeError, TypeError):
                 continue
@@ -109,7 +101,7 @@ def sweep(db, http, country: str = "nl", limit: int = 20, interval: int = 60) ->
                                   "last_status": None}, ["company_id"])
             known.add(norm_org(name))
             added.append(name)
-    except HttpError:  # run-time budget used up → carry on from here next scan
+    except HttpError:  # rate-limited or run-time budget used up → carry on from this employer next scan
         i = max(0, i - 1)
     db.kv_set(KV.format(country), {"i": i, "cycle": cycle, "total": len(names), "updated": now_iso(),
                                    "found": int(st.get("found") or 0) + len(added)})
