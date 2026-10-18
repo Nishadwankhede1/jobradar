@@ -24,6 +24,7 @@ hard_reject_outside_uae = true      # (name kept for compatibility) jobs outside
 [sources]
 alerts_only = []
 promote_leads_per_scan = 15   # employers seen only through LinkedIn / e-mail / job-board leads → follow their own careers feed
+register_sweep_per_scan = 30  # NL: probe 30 more IND-registered sponsors per scan for a public job feed (full pass in about a week)
 
 [polling]
 priority_1 = 30
