@@ -110,3 +110,84 @@ class Arbeitnow(Adapter):
             if not rows or not (data.get("links") or {}).get("next"):
                 break
         return AdapterResult(list(jobs.values()), complete=False)
+
+
+@register("ba_jobsuche")
+class BAJobsuche(Adapter):
+    """Germany's Federal Employment Agency (Bundesagentur für Arbeit) job portal – the official national job board,
+    where almost every German employer advertises. Search: the public REST API the portal itself uses (documented at
+    bund.dev, public client key). Full description: the portal's own job page (robots.txt allows it), only for postings
+    not seen before, capped per run. Postings are leads (is_official=False); the employer's own page wins when found."""
+
+    API = "https://rest.arbeitsagentur.de/jobboerse/jobsuche-service/pc/v6/jobs"
+    DETAIL = "https://www.arbeitsagentur.de/jobsuche/jobdetail/"
+    KEY = {"X-API-Key": "jobboerse-jobsuche"}
+
+    @staticmethod
+    def _detail(page: str) -> dict:
+        import json as _json
+        import re as _re
+        m = _re.search(r'<script id="ng-state"[^>]*>(.*?)</script>', page or "", _re.S)
+        if not m:
+            return {}
+        try:
+            return (_json.loads(m.group(1)) or {}).get("jobdetail") or {}
+        except ValueError:
+            return {}
+
+    @staticmethod
+    def _salary(j: dict) -> str:
+        lo, hi = j.get("gehaltsspanneVon"), j.get("gehaltsspanneBis")
+        if not (lo or hi):
+            return ""
+        per = "per year" if (j.get("verguetungsangabe") or "").upper().startswith("JAHR") else "per month"
+        nums = " - ".join(f"€{int(float(x)):,}" for x in (lo, hi) if x)
+        return f"\n\nSalary: {nums} {per}."
+
+    def fetch(self, company, ctx):
+        cfg = company.get("ats_config") or {}
+        days, size = int(cfg.get("days", 14)), int(cfg.get("size", 50))
+        found: dict[str, dict] = {}
+        for q in cfg.get("queries") or ["data analyst"]:
+            for page in range(1, int(cfg.get("pages", 2)) + 1):
+                data = self.http.get_json(self.API, params={"angebotsart": 1, "was": q, "veroeffentlichtseit": days,
+                                                           "page": page, "size": size}, headers=self.KEY)
+                rows = data.get("ergebnisliste") or []
+                for j in rows:
+                    if j.get("referenznummer"):
+                        found.setdefault(j["referenznummer"], j)
+                if len(rows) < size:
+                    break
+        jobs, fetched, deferred = [], 0, 0
+        agencies = set((ctx.state or {}).get("agency") or [])   # remembered: a known posting's page isn't re-read
+        for ref, j in found.items():
+            adr = ((j.get("stellenlokationen") or [{}])[0] or {}).get("adresse") or {}
+            loc = ", ".join(x for x in (adr.get("ort"), "Germany") if x)
+            marker = j.get("aenderungsdatum") or ""
+            desc = None
+            if self.need_detail(ctx, ref, marker):
+                if fetched >= ctx.max_detail_fetches:
+                    deferred += 1   # picked up on the next run instead of being stored without a description
+                    continue
+                fetched += 1
+                try:
+                    d = self._detail(self.http.get(self.DETAIL + ref).text)
+                except Exception as e:  # one broken page must not stop the source – retried next run
+                    if "budget" in str(e):
+                        raise
+                    deferred += 1
+                    continue
+                desc = (html_to_text(d.get("stellenangebotsBeschreibung")) or "") + self._salary(j)
+                desc = desc.strip() or None
+                if d.get("istPrivateArbeitsvermittlung") or d.get("istArbeitnehmerUeberlassung"):
+                    agencies.add(ref)
+            agency = ref in agencies
+            posted = (j.get("veroeffentlichungszeitraum") or {}).get("von") or j.get("datumErsteVeroeffentlichung")
+            jobs.append(RawJob(source=self.name, external_id=ref, title=j.get("stellenangebotsTitel", ""),
+                               url=j.get("externeURL") or self.DETAIL + ref, location=loc, description=desc,
+                               posted_at=iso(parse_dt(posted)) if posted else None, company_name=j.get("firma") or None,
+                               country_code="DE", updated_marker=marker, is_official=False, is_agency=agency,
+                               extra={"via": "arbeitsagentur.de"}))
+        notes = f"{len(found)} postings, {fetched} new read" + (f", {deferred} left for the next run" if deferred else "")
+        keep = sorted(agencies & set(found))[-2000:]
+        return AdapterResult(jobs, complete=False, notes=notes, state_out={**(ctx.state or {}), "agency": keep})
