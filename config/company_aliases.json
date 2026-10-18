@@ -146,5 +146,98 @@
  ],
  "salesforce": [
   "Informatica"
+ ],
+ "abu-dhabi-commercial-bank": [
+  "ADCB",
+  "Abu Dhabi Commercial Bank PJSC",
+  "Al Hilal Bank",
+  "ADCB Group"
+ ],
+ "sharjah-islamic-bank": [
+  "SIB",
+  "Sharjah Islamic Bank PJSC"
+ ],
+ "abu-dhabi-investment-authority": [
+  "ADIA"
+ ],
+ "abu-dhabi-investment-council": [
+  "ADIC"
+ ],
+ "mufg-bank": [
+  "MUFG",
+  "MUFG Bank, Ltd.",
+  "Mitsubishi UFJ Financial Group"
+ ],
+ "mizuho": [
+  "Mizuho Bank",
+  "Mizuho Financial Group"
+ ],
+ "al-ahli-bank-of-kuwait": [
+  "ABK",
+  "Al Ahli Bank of Kuwait - DIFC"
+ ],
+ "kuwait-finance-house": [
+  "KFH"
+ ],
+ "commercial-bank-international": [
+  "CBI",
+  "Commercial Bank International PJSC"
+ ],
+ "national-bank-of-umm-al-qaiwain": [
+  "NBQ",
+  "National Bank of Umm Al Quwain"
+ ],
+ "emirates-investment-bank": [
+  "EIB",
+  "Emirates Investment Bank PJSC"
+ ],
+ "al-masraf": [
+  "Arab Bank for Investment and Foreign Trade",
+  "Al Masraf Bank"
+ ],
+ "mbank": [
+  "Al Maryah Community Bank",
+  "Mbank UAE"
+ ],
+ "central-bank-of-the-uae": [
+  "CBUAE",
+  "Central Bank of UAE",
+  "Central Bank of the United Arab Emirates"
+ ],
+ "mubadala-investment-company": [
+  "Mubadala",
+  "Mubadala Investment"
+ ],
+ "national-bank-of-kuwait": [
+  "NBK",
+  "NBK UAE"
+ ],
+ "hbl": [
+  "Habib Bank Limited",
+  "HBL UAE"
+ ],
+ "habib-bank-ag-zurich": [
+  "HBZ",
+  "Habib Bank AG Zurich UAE"
+ ],
+ "state-bank-of-india": [
+  "SBI"
+ ],
+ "saudi-national-bank": [
+  "SNB",
+  "The Saudi National Bank"
+ ],
+ "icbc": [
+  "Industrial and Commercial Bank of China"
+ ],
+ "smbc": [
+  "Sumitomo Mitsui Banking Corporation",
+  "SMBC Group"
+ ],
+ "bank-of-china": [
+  "Bank of China (UAE)"
+ ],
+ "banque-misr": [
+  "Banque Misr UAE"
  ]
 }

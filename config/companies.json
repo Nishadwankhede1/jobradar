@@ -9187,5 +9187,845 @@
     "reporting analyst"
    ]
   }
+ },
+ {
+  "name": "Abu Dhabi Commercial Bank (ADCB)",
+  "industry": "Banking",
+  "website": "https://www.adcb.com",
+  "careers_url": "https://www.adcbcareers.com/search/?createNewAlert=false&q=",
+  "ats": "successfactors",
+  "ats_config": {
+   "host": "www.adcbcareers.com"
+  },
+  "dubai_presence": "HQ Abu Dhabi; Dubai branches",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 1,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: SuccessFactors career site adcbcareers.com (33 jobs incl. Dubai, /job/ pages); Al Hilal Bank is part of ADCB",
+  "discovered_in": "banks-2026-10.json",
+  "id": "abu-dhabi-commercial-bank"
+ },
+ {
+  "name": "Sharjah Islamic Bank (SIB)",
+  "industry": "Banking",
+  "website": "https://www.sib.ae",
+  "careers_url": "https://iabrey.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/CX_1/jobs",
+  "ats": "oracle_hcm",
+  "ats_config": {
+   "host": "iabrey.fa.ocs.oraclecloud.com",
+   "site_number": "CX_1"
+  },
+  "dubai_presence": "HQ Sharjah; UAE branches",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 1,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: 'View all vacancies' on sib.ae/en/about-us/careers links to the Oracle HCM site CX_1",
+  "discovered_in": "banks-2026-10.json",
+  "id": "sharjah-islamic-bank"
+ },
+ {
+  "name": "Abu Dhabi Investment Authority (ADIA)",
+  "industry": "Sovereign Wealth",
+  "website": "https://www.adia.ae",
+  "careers_url": "https://jobs.adia.ae",
+  "ats": "workable",
+  "ats_config": {
+   "account": "adia"
+  },
+  "dubai_presence": "HQ Abu Dhabi",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 1,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: jobs.adia.ae is Workable (account 'adia'), 9 Abu Dhabi jobs listed",
+  "discovered_in": "banks-2026-10.json",
+  "id": "abu-dhabi-investment-authority"
+ },
+ {
+  "name": "Abu Dhabi Investment Council (ADIC)",
+  "industry": "Sovereign Wealth",
+  "website": "https://www.adic.com",
+  "careers_url": "https://apply.workable.com/abu-dhabi-investment-council/",
+  "ats": "workable",
+  "ats_config": {
+   "account": "abu-dhabi-investment-council"
+  },
+  "dubai_presence": "HQ Abu Dhabi (Mubadala group)",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: Workable page 'Abu Dhabi Investment Council – Current Openings'",
+  "discovered_in": "banks-2026-10.json",
+  "id": "abu-dhabi-investment-council"
+ },
+ {
+  "name": "MUFG Bank",
+  "industry": "Banking",
+  "website": "https://www.mufg.jp/english/",
+  "careers_url": "https://mufgub.wd3.myworkdayjobs.com/MUFG-Careers",
+  "ats": "workday",
+  "ats_config": {
+   "host": "mufgub.wd3.myworkdayjobs.com",
+   "tenant": "mufgub",
+   "site": "MUFG-Careers"
+  },
+  "dubai_presence": "MUFG Bank branch, Dubai (DIFC)",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 3,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: mufg.jp careers page links MUFG Bank to the Workday site MUFG-Careers",
+  "discovered_in": "banks-2026-10.json",
+  "id": "mufg-bank"
+ },
+ {
+  "name": "Mizuho",
+  "industry": "Banking",
+  "website": "https://www.mizuhogroup.com/emea",
+  "careers_url": "https://careers.mizuhoemea.com/",
+  "ats": "successfactors",
+  "ats_config": {
+   "host": "careers.mizuhoemea.com"
+  },
+  "dubai_presence": "Dubai office (MEA coverage)",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 3,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: SuccessFactors site careers.mizuhoemea.com with Dubai job pages",
+  "discovered_in": "banks-2026-10.json",
+  "id": "mizuho"
+ },
+ {
+  "name": "Al Ahli Bank of Kuwait (ABK)",
+  "industry": "Banking",
+  "website": "https://abk.eahli.com",
+  "careers_url": "https://careers.eahli.com/go/United-Arab-Emirates/4314301/",
+  "ats": "successfactors",
+  "ats_config": {
+   "host": "careers.eahli.com"
+  },
+  "dubai_presence": "Dubai branch + ABK-DIFC",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 3,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: SuccessFactors site careers.eahli.com with a United Arab Emirates section",
+  "discovered_in": "banks-2026-10.json",
+  "id": "al-ahli-bank-of-kuwait"
+ },
+ {
+  "name": "Kuwait Finance House (KFH)",
+  "industry": "Banking",
+  "website": "https://www.bh.kfh.com/dubai/",
+  "careers_url": "https://careers.ahliunited.com/",
+  "ats": "successfactors",
+  "ats_config": {
+   "host": "careers.ahliunited.com"
+  },
+  "dubai_presence": "DIFC branch of KFH Bahrain",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 3,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: KFH Bahrain careers page links to SuccessFactors careers.ahliunited.com (mostly Bahrain roles)",
+  "discovered_in": "banks-2026-10.json",
+  "id": "kuwait-finance-house"
+ },
+ {
+  "name": "Commercial Bank International (CBI)",
+  "industry": "Banking",
+  "website": "https://www.cbiuae.com",
+  "careers_url": "https://www.cbiuae.com/en/careers/",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Dubai",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: careers page says all vacancies are posted on LinkedIn – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "commercial-bank-international"
+ },
+ {
+  "name": "Invest Bank",
+  "industry": "Banking",
+  "website": "https://www.investbank.ae",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Sharjah",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: no careers page or ATS found on investbank.ae – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "invest-bank"
+ },
+ {
+  "name": "National Bank of Umm Al Qaiwain (NBQ)",
+  "industry": "Banking",
+  "website": "https://www.nbq.ae",
+  "careers_url": "https://www.nbq.ae/general/careers",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Umm Al Quwain; UAE branches",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: careers page lists no vacancies, CVs by e-mail – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "national-bank-of-umm-al-qaiwain"
+ },
+ {
+  "name": "Emirates Investment Bank",
+  "industry": "Banking",
+  "website": "https://www.eibank.com",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Dubai",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: eibank.com has no careers or ATS link – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "emirates-investment-bank"
+ },
+ {
+  "name": "Al Masraf",
+  "industry": "Banking",
+  "website": "https://www.almasraf.ae",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Abu Dhabi",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: no careers page or ATS found on almasraf.ae – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "al-masraf"
+ },
+ {
+  "name": "Mbank (Al Maryah Community Bank)",
+  "industry": "Banking",
+  "website": "https://www.mbank.ae",
+  "careers_url": "https://www.mbank.ae/careers/",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Abu Dhabi",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: careers page lists no vacancies, CVs by e-mail – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "mbank"
+ },
+ {
+  "name": "Central Bank of the UAE (CBUAE)",
+  "industry": "Banking",
+  "website": "https://www.centralbank.ae",
+  "careers_url": "https://careers.centralbank.ae/en/opportunities",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Abu Dhabi; Dubai branch",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: careers.centralbank.ae/en/opportunities exists but could not be confirmed as readable without JavaScript – re-check – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "central-bank-of-the-uae"
+ },
+ {
+  "name": "Mubadala Investment Company",
+  "industry": "Sovereign Wealth",
+  "website": "https://www.mubadala.com",
+  "careers_url": "https://www.mubadala.com/en/careers",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "HQ Abu Dhabi",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: jobs are on the Takafo' platform (takafo.ae / mic-cand.takafo.ai), which robots.txt blocks – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "mubadala-investment-company"
+ },
+ {
+  "name": "National Bank of Kuwait (NBK)",
+  "industry": "Banking",
+  "website": "https://www.nbk.com/uae",
+  "careers_url": "https://www.nbk.com/uae/careers.html",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "UAE branch, Dubai",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: UAE careers page has no listings (CVs by e-mail); group portal blocked by robots.txt – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "national-bank-of-kuwait"
+ },
+ {
+  "name": "Doha Bank",
+  "industry": "Banking",
+  "website": "https://www.dohabank.com.qa",
+  "careers_url": "https://www.dohabank.com.qa/careers/",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "UAE branches (Dubai, Abu Dhabi)",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: careers platform not confirmed – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "doha-bank"
+ },
+ {
+  "name": "Bank of Baroda",
+  "industry": "Banking",
+  "website": "https://bankofbaroda.in",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "UAE branches",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: only India recruitment notices (PDF); no UAE job feed – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "bank-of-baroda"
+ },
+ {
+  "name": "State Bank of India (SBI)",
+  "industry": "Banking",
+  "website": "https://sbi.bank.in",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "DIFC branch",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: only India recruitment notices (PDF); no UAE job feed – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "state-bank-of-india"
+ },
+ {
+  "name": "HBL (Habib Bank Limited)",
+  "industry": "Banking",
+  "website": "https://hbl.com/uae",
+  "careers_url": "https://hbl.com/uae/careers",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "UAE branches + DIFC",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: UAE careers page has no listings, CVs by e-mail – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "hbl"
+ },
+ {
+  "name": "Habib Bank AG Zurich (HBZ)",
+  "industry": "Banking",
+  "website": "https://habibbank.com",
+  "careers_url": "https://habibbank.com/ae/careers/",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "UAE branches, Dubai",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: 'Open vacancies' links only to LinkedIn – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "habib-bank-ag-zurich"
+ },
+ {
+  "name": "Banque Misr (UAE)",
+  "industry": "Banking",
+  "website": "https://banquemisr.ae",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "UAE branches",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: no UAE careers page found – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "banque-misr"
+ },
+ {
+  "name": "SMBC",
+  "industry": "Banking",
+  "website": "https://www.smbcgroup.com/emea/",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "DIFC branch",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: EMEA careers platform not confirmed – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "smbc"
+ },
+ {
+  "name": "Bank of China (UAE)",
+  "industry": "Banking",
+  "website": "https://www.boc.cn/en/",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "UAE branches (Abu Dhabi, Dubai)",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: only annual recruitment notices on boc.cn; no UAE feed – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "bank-of-china"
+ },
+ {
+  "name": "ICBC (Middle East)",
+  "industry": "Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "DIFC",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: no official careers site found; hires via job boards / LinkedIn – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "icbc"
+ },
+ {
+  "name": "Saudi National Bank (SNB)",
+  "industry": "Banking",
+  "website": "https://www.alahli.com",
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "DIFC branch (ex-Samba)",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Bank / investor with UAE operations; analytics, MIS and risk teams",
+  "priority": 2,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: no careers portal found – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "saudi-national-bank"
+ },
+ {
+  "name": "Lazard",
+  "industry": "Investment Banking",
+  "website": "https://www.lazard.com",
+  "careers_url": "https://icbpjb.fa.ocs.oraclecloud.com/hcmUI/CandidateExperience/en/sites/LazardProfessionalCareers/jobs",
+  "ats": "oracle_hcm",
+  "ats_config": {
+   "host": "icbpjb.fa.ocs.oraclecloud.com",
+   "site_number": "LazardProfessionalCareers"
+  },
+  "dubai_presence": "Dubai and Abu Dhabi offices",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: lazard.com/careers/jobs links professionals to Oracle HCM site LazardProfessionalCareers",
+  "discovered_in": "banks-2026-10.json",
+  "id": "lazard"
+ },
+ {
+  "name": "Rothschild & Co",
+  "industry": "Investment Banking",
+  "website": "https://www.rothschildandco.com",
+  "careers_url": "https://rothschildandco.wd3.myworkdayjobs.com/Rothschildandco_Lateral",
+  "ats": "workday",
+  "ats_config": {
+   "host": "rothschildandco.wd3.myworkdayjobs.com",
+   "tenant": "rothschildandco",
+   "site": "Rothschildandco_Lateral"
+  },
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": true,
+  "kind": "employer",
+  "verification_note": "Checked 18–19 Oct 2026: Dubai vacancy on rothschildandco.com applies via Workday Rothschildandco_Lateral (JR016381)",
+  "discovered_in": "banks-2026-10.json",
+  "id": "rothschild-co"
+ },
+ {
+  "name": "Nomura",
+  "industry": "Investment Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "nomura"
+ },
+ {
+  "name": "Jefferies",
+  "industry": "Investment Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "jefferies"
+ },
+ {
+  "name": "Pictet",
+  "industry": "Investment Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "pictet"
+ },
+ {
+  "name": "Lombard Odier",
+  "industry": "Investment Banking",
+  "website": "https://www.lombardodier.com",
+  "careers_url": "https://am.lombardodier.com/home/about-us/careers.html",
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "lombard-odier"
+ },
+ {
+  "name": "EFG International",
+  "industry": "Investment Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "efg-international"
+ },
+ {
+  "name": "Crédit Agricole CIB",
+  "industry": "Investment Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) and Abu Dhabi",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "credit-agricole-cib"
+ },
+ {
+  "name": "Société Générale",
+  "industry": "Investment Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "societe-generale"
+ },
+ {
+  "name": "Natixis CIB",
+  "industry": "Investment Banking",
+  "website": null,
+  "careers_url": null,
+  "ats": "manual",
+  "ats_config": {},
+  "dubai_presence": "Dubai (DIFC) office",
+  "job_families": [
+   "Data & Analytics",
+   "MIS & Reporting",
+   "Risk",
+   "Finance"
+  ],
+  "hires_analytics_evidence": "Investment / private bank with a Dubai (DIFC) or Abu Dhabi (ADGM) office",
+  "priority": 3,
+  "verified": false,
+  "kind": "employer",
+  "verification_note": "Added 18–19 Oct 2026: careers platform not checked yet – covered by LinkedIn company alerts / job-alert e-mails",
+  "discovered_in": "banks-2026-10.json",
+  "id": "natixis-cib"
  }
 ]
