@@ -351,6 +351,11 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
     if is_eu():  # Europe instance: keep the official sponsor register current (monthly list, checked weekly)
         from .scoring.sponsor import refresh_registers
         log.info("NL sponsor register: %s", refresh_registers(http, db))
+        from .region import enabled_countries
+        if "nl" in enabled_countries() and not only:  # follow every Dutch sponsor that has a public job feed
+            from .external.register_sweep import sweep
+            sweep(db, http, "nl", int(settings.get("sources", "register_sweep_per_scan", 0) or 0),
+                  int(settings.raw["polling"].get("priority_2", 60)))
     heal_sources(db)
     http.cache.update(db.load_http_cache())
     sources = due_sources(db, only, force)

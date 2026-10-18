@@ -20,13 +20,13 @@ def coverage_stats(db: Database, notify_threshold: float = 7.0) -> dict:
                     "AND j.duplicate_of IS NULL AND s.stage_a_pass=1 AND s.score >= ?", (notify_threshold,))
     return {
         "generated_at": now_iso(),
-        "companies_discovered": s("SELECT COUNT(*) FROM companies WHERE (kind='employer' OR (kind='lead' AND ats='auto')) AND enabled=1"),
+        "companies_discovered": s("SELECT COUNT(*) FROM companies WHERE (kind='employer' OR (kind='lead' AND ats NOT IN ('manual','email'))) AND enabled=1"),
         "uae_jobs_last_check": s("SELECT COALESCE(SUM(s.last_job_count),0) FROM sources s JOIN companies c ON c.id=s.company_id "
                                  "WHERE c.enabled=1 AND s.last_status IN ('ok','not_modified','partial')"),
         "jobs_new_24h": s("SELECT COUNT(*) FROM jobs WHERE status='active' AND duplicate_of IS NULL AND first_seen_at >= ?",
                           (iso(utcnow() - timedelta(hours=24)),)),
         "companies_from_leads": s("SELECT COUNT(*) FROM companies WHERE kind = 'lead'"),
-        "companies_with_feed": s("SELECT COUNT(*) FROM companies WHERE (kind='employer' OR (kind='lead' AND ats='auto')) AND ats NOT IN ('manual','email') AND enabled=1"),
+        "companies_with_feed": s("SELECT COUNT(*) FROM companies WHERE (kind='employer' OR (kind='lead' AND ats NOT IN ('manual','email'))) AND ats NOT IN ('manual','email') AND enabled=1"),
         "sources_monitored_ok": s(f"SELECT COUNT(*) FROM sources s JOIN companies c ON c.id=s.company_id WHERE c.enabled=1 AND s.last_status IN {OK_STATES}"),
         "sources_failing": s("SELECT COUNT(*) FROM sources s JOIN companies c ON c.id=s.company_id WHERE c.enabled=1 AND s.last_status='error'"),
         "sources_unmonitorable": s("SELECT COUNT(*) FROM sources s JOIN companies c ON c.id=s.company_id WHERE c.enabled=1 AND c.kind='employer' AND s.last_status='unmonitored'"),
@@ -71,7 +71,7 @@ def dashboard_data(db: Database, settings) -> dict:
         (SELECT MAX(sc.score) FROM jobs j JOIN scores sc ON sc.job_id=j.id WHERE j.company_id=c.id AND j.status='active'
            AND j.duplicate_of IS NULL AND sc.hard_disqualifiers IN ('[]','')) AS best_score
         FROM companies c LEFT JOIN sources s ON s.company_id=c.id
-        WHERE (c.kind = 'employer' OR (c.kind = 'lead' AND c.ats = 'auto')) AND c.enabled=1
+        WHERE (c.kind = 'employer' OR (c.kind = 'lead' AND c.ats NOT IN ('manual','email'))) AND c.enabled=1
         ORDER BY CASE s.last_status WHEN 'error' THEN 0 WHEN 'partial' THEN 1 ELSE 2 END, c.priority, c.name""")
     runs = db.q("SELECT * FROM scan_runs ORDER BY id DESC LIMIT 30")
     from .applications import all_applications, not_relevant
