@@ -56,7 +56,10 @@ def dashboard_data(db: Database, settings) -> dict:
         s.uncertainties, s.matched_skills, s.missing_skills, s.recommendation, s.confidence, s.method,
         (SELECT MAX(sent_at) FROM notifications n WHERE n.job_id=j.id AND n.status='sent') AS notified_at,
         c.name AS company_name, j.company_id, j.norm_title, j.fingerprint, r.file AS cv_file, r.coverage_before AS cv_before, r.coverage_after AS cv_after,
-        r.added AS cv_added, r.missing AS cv_missing, s.visa"""
+        r.added AS cv_added, r.missing AS cv_missing, s.visa,
+        CASE WHEN s.score >= """ + f"{thr:.4f}" + """ THEN SUBSTR(j.description, 1, 8000) END AS description"""
+    # ^ full text only for jobs at/above the alert threshold: lets "Tailor with RankOne X" hand the posting over
+    #   without fetching it again, while keeping the (encrypted) dashboard small.
     base = ("FROM jobs j JOIN scores s ON s.job_id=j.id LEFT JOIN companies c ON c.id=j.company_id "
             "LEFT JOIN resumes r ON r.job_id=j.id WHERE j.status='active' AND j.duplicate_of IS NULL")
     # best matches + the most recently posted jobs (so "Latest posts" isn't limited to high scorers)
@@ -442,6 +445,7 @@ function detailHtml(j){
     <div><h3>Gaps</h3>${li(j.gaps)}<h3 style="margin-top:12px">Check before applying</h3>${li([...(j.hard_disqualifiers||[]), ...(j.uncertainties||[])])}${visaDetail(j)}</div>
     <div><h3>Apply</h3><a class="btn" href="${esc(j.url)}" target="_blank" rel="noopener">Open the job posting ↗</a><div class="co" style="margin-top:8px">${esc(j.evidence||'')}</div>
       ${cvHtml(j)}
+      ${rxHtml(j)}
       <h3 style="margin-top:14px">Who to contact (LinkedIn, UAE)</h3><div class="co">${peopleHtml(j)}</div></div>
   </div></td></tr>`;
 }
@@ -465,6 +469,24 @@ function cvHtml(j){
       : '<div class="co">Saved on your PC in the output\\resumes folder.</div>'}
     ${skillChips(j, chips)}`;
 }
+/* ---------------- RankOne X: hand this job to the resume optimizer running on this PC (http://localhost:3000).
+   The job travels in the URL fragment (after #), which the browser never sends to any server. */
+const RX_BASE = () => { try { return localStorage.getItem('jobradar.rankonex') || 'http://localhost:3000'; } catch(e) { return 'http://localhost:3000'; } };
+function rxHtml(j){
+  return `<div style="margin-top:10px"><a class="btn ghost" href="#" data-rx="${j.id}" title="Opens RankOne X on this PC (start it first). It asks what you have done for each gap, then tailors your CV in its original design.">Tailor with RankOne X ↗</a></div>`;
+}
+function b64url(s){
+  const bytes = new TextEncoder().encode(s); let bin = '';
+  for (let i = 0; i < bytes.length; i += 8192) bin += String.fromCharCode.apply(null, bytes.subarray(i, i + 8192));
+  return btoa(bin).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '');
+}
+document.addEventListener('click', e => { const a = e.target.closest('a[data-rx]'); if (!a) return;
+  e.preventDefault(); e.stopPropagation();
+  const j = D.jobs.find(x => String(x.id) === a.dataset.rx); if (!j) return;
+  const payload = {v: 1, source: 'jobradar', id: j.id, title: j.title || '', company: coName(j) || j.company_display || '',
+    location: j.city || j.location || '', url: j.url || '', description: j.description || ''};
+  window.open(RX_BASE() + '/#import=' + b64url(JSON.stringify(payload)), 'rankonex');
+}, true);
 /* ---------------- "I know this": click a keyword under "Not in your CV" and it is added to your tailored CVs
    (this one and every other job that asks for it). Click it again under "Added" to take it back out. */
 const SKP = 'jobradar.skills.v1';
