@@ -510,12 +510,23 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
         from .config import ROOT
         from .resume.service import build_resumes
         stats_cv = build_resumes(db, settings, ROOT)
+        from .resume.packs import keep_pack_cvs
+        keep_pack_cvs(db, ROOT, settings)
     except Exception as e:
         log.warning(f"tailored CVs skipped: {type(e).__name__}: {e}")
         stats_cv = 0
     sent = failed = 0
     if notifier:
         sent, failed = notifier.process_alerts()
+    packs_built: list[int] = []
+    try:  # RankOne X apply packs (cloud, when set up): after the alerts, so a new job is never delayed by its pack
+        from .config import ROOT
+        from .resume.packs import build_packs
+        packs_built = build_packs(db, settings, ROOT)
+        if notifier and packs_built:
+            notifier.pack_ready(packs_built)
+    except Exception as e:
+        log.warning(f"apply packs skipped: {type(e).__name__}: {e}")
     db.save_http_cache(http.cache)
     run = {"started_at": started, "finished_at": now_iso(), "trigger": trigger, **stats, "alerts_sent": sent,
            "alerts_failed": failed, "http_requests": http.request_count,
@@ -525,6 +536,7 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
     db.commit()
     run["scored"] = scored
     run["tailored_cvs"] = stats_cv
+    run["apply_packs"] = len(packs_built)
     run["llm_calls"] = llm.calls
     run["duration_s"] = round(time.monotonic() - t0, 1)
     return run

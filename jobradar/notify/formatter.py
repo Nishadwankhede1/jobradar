@@ -140,6 +140,30 @@ def job_alert(job: dict, sc: dict, kind: str = "alert") -> tuple[str, str]:
     return "\n".join(h for h, _ in lines), "\n".join(p for _, p in lines)
 
 
+def pack_ready(job: dict, pk: dict) -> tuple[str, str]:
+    """Follow-up to an alert: the RankOne X resume for this job is ready (the PDF is attached on Telegram)."""
+    import json as _json
+
+    pct = lambda x: f"{round((x or 0) * 100)}%"  # noqa: E731
+    extra = _json.loads(pk.get("pack") or "{}")
+    todo = len((extra.get("form") or {}).get("ask_candidate") or []) + len(extra.get("gaps_for_later") or [])
+    med = f"{pk['median_after']:g}" if pk.get("median_after") is not None else "?"
+    rank = f"#{med} of {pk.get('pool') or '?'} · #1 chance {pct(pk.get('top1_before'))} → "
+    lines = [
+        ("<b>RESUME READY</b>", "RESUME READY"),
+        (f"{_e(job.get('title'))} – {_e(job.get('company_display'))}", f"{job.get('title')} – {job.get('company_display')}"),
+        ("", ""),
+        (f"<b>Simulated rank:</b> {rank}<b>{pct(pk.get('top1_after'))}</b>", f"Simulated rank: {rank}{pct(pk.get('top1_after'))}"),
+    ]
+    if pk.get("proxy"):
+        lines.append(("<i>Built from earlier postings with this title – rebuilt automatically when the full posting is found.</i>",
+                      "Built from earlier postings with this title – rebuilt automatically when the full posting is found."))
+    if todo:
+        lines.append((f"{todo} question(s) only you can answer – see the dashboard.", f"{todo} question(s) only you can answer – see the dashboard."))
+    lines += [("", ""), ("<b>Application Link:</b>", "Application Link:"), (_e(job.get("url")), job.get("url") or "")]
+    return "\n".join(h for h, _ in lines), "\n".join(p for _, p in lines)
+
+
 def digest(date_label: str, rows: list[dict], leads: list[dict], health: dict) -> tuple[str, str]:
     h = [f"<b>JobRadar daily digest – {_e(date_label)}</b>", ""]
     p = [f"JobRadar daily digest – {date_label}", ""]
