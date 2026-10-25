@@ -76,3 +76,12 @@ title = "JobRadar · Dubai BI & Analytics"
 enabled = true
 min_score = 7.0                 # same as the alert threshold
 output_dir = "output/resumes"   # PDFs land here; the dashboard links to them
+
+[packs]
+# RankOne X apply packs (cloud only, once the RANKONEX_TOKEN + RANKONE_PROFILE secrets are set): best truthful resume in
+# your original design + cover letter + form answers for each relevant job. Built right AFTER the alerts.
+per_run = 3                     # newest jobs first; the rest follow on the next scan
+depth = "deep"                  # "quick" ≈ 1 min per job on GitHub's runners, "deep" ≈ 2–4 min (higher rank)
+budget_seconds = 600            # stop starting new packs after this many seconds in one scan
+timeout_seconds = 420
+output_dir = "output/packs"

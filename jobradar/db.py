@@ -73,6 +73,10 @@ CREATE TABLE IF NOT EXISTS resumes (
   job_id INTEGER PRIMARY KEY, content_hash TEXT, file TEXT, coverage_before INTEGER, coverage_after INTEGER,
   keywords_total INTEGER, matched TEXT, added TEXT, missing TEXT, created_at TEXT
 );
+CREATE TABLE IF NOT EXISTS packs (
+  job_id INTEGER PRIMARY KEY, content_hash TEXT, depth TEXT, proxy INTEGER DEFAULT 0, status TEXT,
+  top1_before REAL, top1_after REAL, median_after REAL, pool INTEGER, folder TEXT, pack TEXT, error TEXT, created_at TEXT
+);
 """
 
 JSON_COLS = {"ats_config", "job_families", "hard_disqualifiers", "subscores", "matched_skills", "missing_skills",

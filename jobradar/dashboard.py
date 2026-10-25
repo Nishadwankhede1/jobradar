@@ -56,9 +56,11 @@ def dashboard_data(db: Database, settings) -> dict:
         s.uncertainties, s.matched_skills, s.missing_skills, s.recommendation, s.confidence, s.method,
         (SELECT MAX(sent_at) FROM notifications n WHERE n.job_id=j.id AND n.status='sent') AS notified_at,
         c.name AS company_name, j.company_id, j.norm_title, j.fingerprint, r.file AS cv_file, r.coverage_before AS cv_before, r.coverage_after AS cv_after,
-        r.added AS cv_added, r.missing AS cv_missing, s.visa"""
+        r.added AS cv_added, r.missing AS cv_missing, s.visa,
+        p.status AS pack_status, p.top1_before AS pack_top1_before, p.top1_after AS pack_top1, p.median_after AS pack_rank,
+        p.pool AS pack_pool, p.proxy AS pack_proxy, p.pack AS pack_detail"""
     base = ("FROM jobs j JOIN scores s ON s.job_id=j.id LEFT JOIN companies c ON c.id=j.company_id "
-            "LEFT JOIN resumes r ON r.job_id=j.id WHERE j.status='active' AND j.duplicate_of IS NULL")
+            "LEFT JOIN resumes r ON r.job_id=j.id LEFT JOIN packs p ON p.job_id=j.id WHERE j.status='active' AND j.duplicate_of IS NULL")
     # best matches + the most recently posted jobs (so "Latest posts" isn't limited to high scorers)
     jobs = db.q(f"SELECT {cols} {base} ORDER BY s.score DESC LIMIT 600")
     seen = {j["id"] for j in jobs}
@@ -457,7 +459,22 @@ function liPeople(co, kind){
 function gPeople(co){ return 'https://www.google.com/search?q=' + encodeURIComponent(`site:linkedin.com/in "${co}" ("head of data" OR "analytics manager" OR "BI manager") (Dubai OR UAE)`); }
 function peopleHtml(o){ const co = coName(o); if (!co) return '';
   return `<span class="plinks"><a href="${liPeople(co,'hm')}" target="_blank" rel="noopener">Hiring managers ↗</a> · <a href="${liPeople(co,'rec')}" target="_blank" rel="noopener">Recruiters ↗</a> · <a href="${gPeople(co)}" target="_blank" rel="noopener">Google ↗</a></span>`; }
+function packHtml(j){
+  if (j.pack_status !== 'ready') return '';
+  let d = {}; try { d = JSON.parse(j.pack_detail || '{}'); } catch (e) {}
+  const pct = x => Math.round((x || 0) * 100) + '%';
+  const ask = ((d.form || {}).ask_candidate || []).map(a => `<li>${esc(a.question)}</li>`).join('');
+  const gaps = (d.gaps_for_later || []).map(g => `<li>${esc(g.requirement)} <span class="co">– ${esc(g.why)}</span></li>`).join('');
+  const fields = Object.entries((d.form || {}).fields || {}).map(([k, v]) => `<tr><td>${esc(k.replace(/_/g, ' '))}</td><td>${esc(v.value)}</td></tr>`).join('');
+  return `<h3 style="margin-top:14px">RankOne X resume · simulated rank #${esc(j.pack_rank)} of ${esc(j.pack_pool)} · #1 chance ${pct(j.pack_top1_before)} → <b>${pct(j.pack_top1)}</b></h3>
+    ${j.pack_proxy ? '<div class="co">Built from earlier postings with this title – rebuilt when the full posting is found.</div>' : ''}
+    ${cvHref(j.cv_file) ? `<a class="btn ghost" href="${esc(cvHref(j.cv_file))}" data-name="${esc(cvName(j.company_display, j.title))}" target="_blank" rel="noopener">Download your resume (PDF) ↗</a>` : ''}
+    ${ask || gaps ? `<details open><summary>Only you can answer</summary><ul>${ask}${gaps}</ul></details>` : ''}
+    ${d.cover_letter ? `<details><summary>Cover letter</summary><pre style="white-space:pre-wrap">${esc(d.cover_letter)}</pre></details>` : ''}
+    ${fields ? `<details><summary>Form answers</summary><table class="kv">${fields}</table></details>` : ''}`;
+}
 function cvHtml(j){
+  if (j.pack_status === 'ready') return packHtml(j);
   if (j.cv_after == null) return `<h3 style="margin-top:14px">Tailored CV</h3><div class="co">${j.score >= thr && eligible(j) ? 'Created on your next scan (run_jobradar.bat).' : 'Made automatically for jobs scoring ≥ ' + thr + '.'}</div>`;
   const chips = (a, c) => (a||[]).map(x => `<span class="chip ${c}">${esc(x)}</span>`).join('');
   return `<h3 style="margin-top:14px">Tailored CV · ATS keywords ${j.cv_before}% → <b>${j.cv_after}%</b></h3>
@@ -843,7 +860,7 @@ def render(data: dict, fragment: bool = False, mode: str | None = None, cloud: d
                 "jobs": [{**j, "cv_file": tok.get(j.get("cv_file"))} for j in data["jobs"]],
                 "applications": [{**a, "cv_file": tok.get(a.get("cv_file"))} for a in data.get("applications", [])]}
     if fragment:  # the online copy never links to (or embeds) your CV files – they stay on your PC
-        data = {**data, "cv_base": None, "online": True, "jobs": [{**j, "cv_file": None} for j in data["jobs"]],
+        data = {**data, "cv_base": None, "online": True, "jobs": [{**j, "cv_file": None, "pack_detail": None} for j in data["jobs"]],
                 "applications": [{**a, "cv_file": None, "note": None} for a in data.get("applications", [])]}
     payload = json.dumps(data, ensure_ascii=False, default=str).replace("</", "<\\/")
     body = BODY.replace("__DATA__", payload)

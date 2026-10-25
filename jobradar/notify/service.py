@@ -58,9 +58,33 @@ class Notifier:
                 return
             f = ROOT / self.s.get("resume", "output_dir", "output/resumes") / r["file"]
             if f.is_file():
-                ch.send_document(f, f"Tailored CV for this role · ATS keywords {r['coverage_before']}% → {r['coverage_after']}%")
+                pk = self.db.one("SELECT 1 FROM packs WHERE job_id=? AND status='ready'", (j["id"],))
+                ch.send_document(f, "Your RankOne X resume for this role (original design)" if pk or r["coverage_after"] is None
+                                 else f"Tailored CV for this role · ATS keywords {r['coverage_before']}% → {r['coverage_after']}%")
         except Exception as e:
             log.warning("CV attachment failed: %s", type(e).__name__)
+
+    # ------------------------------------------------------------------ RankOne X resume ready (follow-up to an alert)
+    def pack_ready(self, job_ids: list[int]) -> int:
+        sent = 0
+        for jid in job_ids:
+            j = self.db.one("SELECT * FROM jobs WHERE id=?", (jid,))
+            pk = self.db.one("SELECT * FROM packs WHERE job_id=? AND status='ready'", (jid,))
+            if not j or not pk:
+                continue
+            html_msg, plain = formatter.pack_ready(j, pk)
+            for ch in self.channels:
+                if self.db.scalar("SELECT 1 FROM notifications WHERE job_id=? AND channel=? AND kind='pack' AND content_hash=? AND status='sent'",
+                                  (jid, ch.name, pk["content_hash"])):
+                    continue
+                try:
+                    self._record(jid, ch.name, "pack", pk["content_hash"], "sent", ch.send(html_msg, plain))
+                    self._attach_cv(ch, j)
+                    sent += 1
+                except Exception as e:
+                    self._record(jid, ch.name, "pack", pk["content_hash"], "failed", error=f"{type(e).__name__}: {str(e)[:200]}")
+                    log.warning("%s pack message failed: %s", ch.name, type(e).__name__)
+        return sent
 
     # ------------------------------------------------------------------ immediate alerts
     def process_alerts(self) -> tuple[int, int]:

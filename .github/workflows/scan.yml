@@ -46,26 +46,48 @@ jobs:
     env:
       JOBRADAR_KEY: ${{ secrets.JOBRADAR_KEY }}
       PYTHONUTF8: "1"
+      # RankOne X apply packs switch on when both secrets exist (private code + your profile); otherwise skipped
+      HAS_RANKONEX: ${{ secrets.RANKONEX_TOKEN != '' && secrets.RANKONE_PROFILE != '' }}
     steps:
       - uses: actions/checkout@v4
 
       - name: Safety check – no personal files in the public code
         run: |
           bad=0
-          for f in config/resume.json config/profile.toml .env state output CLOUD_SETUP_PRIVATE.txt; do
+          for f in config/resume.json config/profile.toml .env state output CLOUD_SETUP_PRIVATE.txt rankonex; do
             if [ -e "$f" ]; then echo "::error::'$f' must NOT be in this public repository - delete it on GitHub"; bad=1; fi
           done
           [ -n "$JOBRADAR_KEY" ] || { echo "::error::The JOBRADAR_KEY secret is missing (see CLOUD_SETUP_PRIVATE.txt on your PC)"; bad=1; }
           exit $bad
 
+      # private repository, read with a fine-grained read-only token; it is never committed or published
+      - name: RankOne X code (private)
+        if: env.HAS_RANKONEX == 'true'
+        uses: actions/checkout@v4
+        with:
+          repository: Nishadwankhede1/rankonex
+          token: ${{ secrets.RANKONEX_TOKEN }}
+          path: rankonex
+          persist-credentials: false
+
       - uses: actions/setup-python@v5
         with:
           python-version: "3.12"
           cache: pip
-          cache-dependency-path: requirements-cloud.txt
+          cache-dependency-path: "**/requirements*.txt"
 
       - name: Install
         run: pip install --quiet -r requirements-cloud.txt
+
+      - name: RankOne X setup
+        if: env.HAS_RANKONEX == 'true'
+        env:
+          RANKONE_PROFILE: ${{ secrets.RANKONE_PROFILE }}
+        run: |
+          pip install --quiet -r rankonex/backend/requirements.txt
+          printf '%s' "$RANKONE_PROFILE" > "$RUNNER_TEMP/rankone_profile.txt"
+          echo "RANKONEX_DIR=$GITHUB_WORKSPACE/rankonex/backend" >> "$GITHUB_ENV"
+          echo "RANKONE_PROFILE_FILE=$RUNNER_TEMP/rankone_profile.txt" >> "$GITHUB_ENV"
 
       - name: CV font (Carlito, same metrics as Calibri)
         run: |
@@ -121,6 +143,9 @@ jobs:
           IMAP_HOST: ${{ vars.IMAP_HOST }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
+          # RankOne X wording: free Gemini key if set (Google may use free-tier inputs), else rule-based only
+          RANKONE_LLM_PROVIDER: ${{ secrets.GEMINI_API_KEY != '' && 'gemini' || 'demo' }}
+          GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           JOBRADAR_TELEGRAM_COMMANDS: "1"
           JOBRADAR_MAX_RUNTIME: "480"
         run: |
