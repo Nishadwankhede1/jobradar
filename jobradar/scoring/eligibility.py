@@ -9,12 +9,15 @@ from .skills import PREFERRED_MARKERS
 
 SENT_SPLIT = re.compile(r"(?<=[.;!?])\s+|\n+|•")
 
-NATIONALS_TITLE = re.compile(r"uae ?nationals?|\bemirati|\buaen\d?\b|nationals? only|\(national\)|\btawteen\b|\bnafis\b", re.I)
+# Emiratisation programmes: Sinyar = Al-Futtaim's graduate track for UAE nationals ("SGP - UAEN…")
+NATIONALS_TITLE = re.compile(r"uae ?nationals?|\bemirati|\buaen\d?\b|nationals? only|\(national\)|\btawteen\b|\bnafis\b|\bsinyar\b|\bsgp\b", re.I)
 NATIONALS_HARD = re.compile(
     r"(only (?:open|available) (?:to|for) (?:uae|emirati) nationals?|(?:uae|emirati) nationals? only|exclusively for (?:uae|emirati)|"
     r"must be (?:a |an )?(?:uae national|emirati)|(?:this|the) (?:role|position|vacancy|programme|program|opportunity) is (?:open )?(?:only )?(?:for|to) (?:uae|emirati) nationals?|"
     r"open to (?:uae|emirati) nationals? only|reserved for (?:uae|emirati) nationals|emiratisation (?:role|position|vacancy)|"
-    r"(?:uae|emirati) national(?:ity)? (?:is )?(?:required|mandatory|a must)|emirati talent only)", re.I)
+    r"(?:uae|emirati) national(?:ity)? (?:is )?(?:required|mandatory|a must)|emirati talent only|"
+    r"(?:for|to|targets?|targeting) (?:young |talented )?(?:uae national|emirati) (?:fresh |recent |young )?(?:graduates?|talents?|youth)|"
+    r"\bemirati (?:fresh |recent )graduates?|uae national (?:fresh |recent )graduates?)", re.I)
 NATIONALS_SOFT = re.compile(r"(uae|emirati) nationals? (?:are )?(?:strongly )?(?:encouraged|preferred|will be given preference|priority)", re.I)
 
 ARABIC = re.compile(r"\barabic\b", re.I)
