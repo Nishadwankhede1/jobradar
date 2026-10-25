@@ -61,7 +61,7 @@ max_calls_per_run = 25
 blend = 0.5                       # final sub-score = (1-blend)*rules + blend*llm  (hard rules always win)
 
 [notify]
-channels = ["telegram"]           # add "whatsapp" once configured
+channels = ["telegram", "email"]  # "email" is skipped until EMAIL_TO + a Gmail app password are set; add "whatsapp" once configured
 digest_hour_dubai = 9             # 09:00 Asia/Dubai
 alert_on_baseline = false         # first scan of a source → one summary message instead of N alerts
 baseline_summary_top = 10
