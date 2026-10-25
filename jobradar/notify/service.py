@@ -86,16 +86,17 @@ class Notifier:
             if not j or not pk:
                 continue
             html_msg, plain = formatter.pack_ready(j, pk)
+            posting = pk["content_hash"].split("|")[0]  # a rebuild of the same posting (new pack version) isn't news
             for ch in self.channels:
-                if self.db.scalar("SELECT 1 FROM notifications WHERE job_id=? AND channel=? AND kind='pack' AND content_hash=? AND status='sent'",
-                                  (jid, ch.name, pk["content_hash"])):
+                if self.db.scalar("SELECT 1 FROM notifications WHERE job_id=? AND channel=? AND kind='pack' AND (content_hash=? OR content_hash LIKE ?) AND status='sent'",
+                                  (jid, ch.name, posting, posting + "|%")):
                     continue
                 try:
-                    self._record(jid, ch.name, "pack", pk["content_hash"], "sent", ch.send(html_msg, plain))
+                    self._record(jid, ch.name, "pack", posting, "sent", ch.send(html_msg, plain))
                     self._attach_cv(ch, j)
                     sent += 1
                 except Exception as e:
-                    self._record(jid, ch.name, "pack", pk["content_hash"], "failed", error=f"{type(e).__name__}: {str(e)[:200]}")
+                    self._record(jid, ch.name, "pack", posting, "failed", error=f"{type(e).__name__}: {str(e)[:200]}")
                     log.warning("%s pack message failed: %s", ch.name, type(e).__name__)
         return sent
 

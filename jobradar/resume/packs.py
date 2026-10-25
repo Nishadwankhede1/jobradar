@@ -22,6 +22,8 @@ from pathlib import Path
 from ..util import log, now_iso
 from .service import cv_filename
 
+# bump to rebuild every recent pack once (e.g. after a rendering fix: v2 = the CV's own font in the cloud)
+PACK_VERSION = "v2"
 SHORT = 400  # characters: below this the posting text is a title/teaser, not a description
 
 
@@ -74,9 +76,9 @@ def build_packs(db, settings, root: Path, budget_s: float | None = None) -> list
     rows = db.q("""SELECT j.*, s.score FROM jobs j JOIN scores s ON s.job_id=j.id LEFT JOIN packs p ON p.job_id=j.id
         WHERE j.status='active' AND j.duplicate_of IS NULL AND s.stage_a_pass=1 AND s.score >= ? AND s.hard_disqualifiers IN ('[]','')
           AND j.id NOT IN (SELECT job_id FROM applications) AND j.first_seen_at >= ?
-          AND (p.job_id IS NULL OR p.content_hash != COALESCE(j.content_hash,'') OR (p.status='failed' AND p.created_at < ?))
+          AND (p.job_id IS NULL OR p.content_hash != COALESCE(j.content_hash,'') || '|' || ? OR (p.status='failed' AND p.created_at < ?))
         ORDER BY j.first_seen_at DESC, s.score DESC LIMIT ?""",
-                (min_score, _hours_ago(fresh), _hours_ago(6), per_run))
+                (min_score, _hours_ago(fresh), PACK_VERSION, _hours_ago(6), per_run))
     out_root = root / settings.get("packs", "output_dir", "output/packs")
     cv_dir = root / settings.get("resume", "output_dir", "output/resumes")
     cv_dir.mkdir(parents=True, exist_ok=True)
@@ -86,7 +88,7 @@ def build_packs(db, settings, root: Path, budget_s: float | None = None) -> list
             log.info("apply packs: time budget used – the rest are built on the next scan")
             break
         text, proxy = _job_text(db, j, code)
-        rec = {"job_id": j["id"], "content_hash": j.get("content_hash") or "", "proxy": int(proxy), "created_at": now_iso()}
+        rec = {"job_id": j["id"], "content_hash": f"{j.get('content_hash') or ''}|{PACK_VERSION}", "proxy": int(proxy), "created_at": now_iso()}
         if not text:
             db.upsert("packs", {**rec, "status": "failed", "error": "no description yet (and too few earlier postings with this title)"}, ["job_id"])
             continue
