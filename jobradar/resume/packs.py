@@ -67,13 +67,16 @@ def build_packs(db, settings, root: Path, budget_s: float | None = None) -> list
     min_score = float(settings.get("resume", "min_score", settings.get("scoring", "notify_threshold", 7.0)))
     per_run = int(settings.get("packs", "per_run", 3))
     budget = budget_s if budget_s is not None else float(settings.get("packs", "budget_seconds", 600))
-    # newest first (speed matters most), then best score; jobs whose posting changed (or proxy → real text) get rebuilt
+    # only NEW jobs (first seen in the last `fresh_hours`): the point is applying within minutes, and building packs for
+    # the whole backlog would slow every scan (later alerts) and flood you with "resume ready" for old jobs.
+    # Newest first, then best score; a job whose posting changed (or proxy → real text) gets rebuilt.
+    fresh = float(settings.get("packs", "fresh_hours", 48))
     rows = db.q("""SELECT j.*, s.score FROM jobs j JOIN scores s ON s.job_id=j.id LEFT JOIN packs p ON p.job_id=j.id
         WHERE j.status='active' AND j.duplicate_of IS NULL AND s.stage_a_pass=1 AND s.score >= ? AND s.hard_disqualifiers IN ('[]','')
-          AND j.id NOT IN (SELECT job_id FROM applications)
+          AND j.id NOT IN (SELECT job_id FROM applications) AND j.first_seen_at >= ?
           AND (p.job_id IS NULL OR p.content_hash != COALESCE(j.content_hash,'') OR (p.status='failed' AND p.created_at < ?))
         ORDER BY j.first_seen_at DESC, s.score DESC LIMIT ?""",
-                (min_score, _hours_ago(6), per_run))
+                (min_score, _hours_ago(fresh), _hours_ago(6), per_run))
     out_root = root / settings.get("packs", "output_dir", "output/packs")
     cv_dir = root / settings.get("resume", "output_dir", "output/resumes")
     cv_dir.mkdir(parents=True, exist_ok=True)
