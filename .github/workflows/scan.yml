@@ -119,6 +119,10 @@ jobs:
           IMAP_USER: ${{ secrets.IMAP_USER }}
           IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
           IMAP_HOST: ${{ vars.IMAP_HOST }}
+          # e-mail alerts: EMAIL_TO = where they go; SMTP_* default to the IMAP mailbox above (same Gmail app password)
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           JOBRADAR_TELEGRAM_COMMANDS: "1"
@@ -279,6 +283,9 @@ jobs:
           IMAP_USER: ${{ secrets.IMAP_USER }}
           IMAP_PASSWORD: ${{ secrets.IMAP_PASSWORD }}
           IMAP_HOST: ${{ vars.IMAP_HOST }}
+          EMAIL_TO: ${{ secrets.EMAIL_TO }}
+          SMTP_USER: ${{ secrets.SMTP_USER }}
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
           LLM_PROVIDER: ${{ vars.LLM_PROVIDER }}
           LLM_API_KEY: ${{ secrets.LLM_API_KEY }}
           JOBRADAR_TELEGRAM_COMMANDS: ${{ secrets.TELEGRAM_BOT_TOKEN_EU != '' && '1' || '0' }}

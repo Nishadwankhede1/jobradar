@@ -22,9 +22,22 @@ class Notifier:
         # repost): one alert per vacancy, whichever row was alerted first
         group = list({job_id, *(r["id"] for r in self.db.q("SELECT id FROM jobs WHERE duplicate_of=?", (job_id,)))})
         ph = ",".join("?" * len(group))
+        kinds = (*ALERT_KINDS, "preexisting")
         return self.db.scalar(f"SELECT 1 FROM notifications WHERE job_id IN ({ph}) AND channel=? AND (status='sent' OR "
-                              f"(status='skipped' AND kind='repost')) AND kind IN ({','.join('?' * len(ALERT_KINDS))})",
-                              (*group, channel, *ALERT_KINDS)) is not None
+                              f"(status='skipped' AND kind IN ('repost', 'preexisting'))) AND kind IN ({','.join('?' * len(kinds))})",
+                              (*group, channel, *kinds)) is not None
+
+    def _start_new_channel(self, ch, thr: float) -> None:
+        """A channel switched on later (e.g. e-mail added after months of Telegram) starts with NEW vacancies only:
+        everything already matching is marked as existing, instead of flooding the inbox with the backlog."""
+        if self.db.scalar("SELECT 1 FROM notifications WHERE channel=? LIMIT 1", (ch.name,)) is not None:
+            return
+        if self.db.scalar("SELECT 1 FROM notifications LIMIT 1") is None:
+            return  # very first run of JobRadar: the normal baseline summary handles it
+        rows = self.candidates(thr)
+        for j in rows:
+            self._record(j["id"], ch.name, "preexisting", j["content_hash"], "skipped", error="matched before this channel was enabled")
+        log.info("%s channel enabled: %d existing matches marked as seen; only new vacancies will be sent", ch.name, len(rows))
 
     def _attempts(self, job_id, channel) -> int:
         return int(self.db.scalar("SELECT COALESCE(MAX(attempts),0) FROM notifications WHERE job_id=? AND channel=? AND status='failed'",
@@ -79,6 +92,7 @@ class Notifier:
             t = parse_dt(j.get("first_seen_at"))
             return leads_ok and t is not None and utcnow() - t <= lead_max_age
         for ch in self.channels:
+            self._start_new_channel(ch, thr)
             baseline_rows, n, channel_down = [], 0, False
             for j in self.candidates(thr):
                 if (not j["is_official"] and not lead_fresh(j)) or self._already(j["id"], ch.name) or self._attempts(j["id"], ch.name) >= 5:

@@ -1,4 +1,4 @@
-"""Delivery channels. Telegram is primary; WhatsApp (Meta Cloud API or Twilio) is optional."""
+"""Delivery channels. Telegram is primary; e-mail (SMTP, e.g. Gmail) and WhatsApp (Meta Cloud API or Twilio) are optional."""
 from __future__ import annotations
 
 import base64
@@ -110,6 +110,53 @@ class WhatsApp(Channel):
         return str(r.json().get("sid", ""))
 
 
+class Email(Channel):
+    """E-mail alerts through any SMTP server (Gmail: smtp.gmail.com with an app password).
+    Env: EMAIL_TO (where alerts go), SMTP_USER / SMTP_PASSWORD (default: the IMAP_USER / IMAP_PASSWORD job-alert mailbox,
+    so one Gmail app password does both), optional SMTP_HOST (default smtp.gmail.com) and SMTP_PORT (default 587)."""
+    name = "email"
+
+    def __init__(self):
+        self.to = os.environ.get("EMAIL_TO")
+        self.user = os.environ.get("SMTP_USER") or os.environ.get("IMAP_USER")
+        self.password = os.environ.get("SMTP_PASSWORD") or os.environ.get("IMAP_PASSWORD")
+        self.host = os.environ.get("SMTP_HOST") or "smtp.gmail.com"
+        self.port = int(os.environ.get("SMTP_PORT") or 587)
+
+    def configured(self):
+        return bool(self.to and self.user and self.password)
+
+    @staticmethod
+    def subject(text_plain: str) -> str:
+        first = next((l.strip() for l in text_plain.splitlines() if l.strip()), "New jobs")
+        return "JobRadar: " + first.lstrip("🔔⭐📌🆕📬✅ ").strip()[:110]
+
+    def send(self, text_html, text_plain):
+        import smtplib
+        from email.message import EmailMessage
+        from email.utils import make_msgid
+
+        msg = EmailMessage()
+        msg["Subject"], msg["From"], msg["To"] = self.subject(text_plain), f"JobRadar <{self.user}>", self.to
+        msg["Message-ID"] = make_msgid(domain="jobradar.local")
+        msg.set_content(text_plain)
+        body = text_html.replace("\n", "<br>\n")  # the alert HTML is Telegram's subset (<b>, <i>, <a>) with \n breaks
+        msg.add_alternative(f'<html><body style="font-family:Segoe UI,Arial,sans-serif;font-size:14px;line-height:1.45">{body}</body></html>',
+                            subtype="html")
+        for attempt in range(2):
+            try:
+                with smtplib.SMTP(self.host, self.port, timeout=30) as s:
+                    s.starttls()
+                    s.login(self.user, self.password)
+                    s.send_message(msg)
+                return msg["Message-ID"]
+            except (smtplib.SMTPServerDisconnected, smtplib.SMTPConnectError, TimeoutError, OSError):
+                if attempt == 1:
+                    raise
+                time.sleep(3)
+        return ""
+
+
 class Outbox(Channel):
     """Dry-run channel: writes messages to state/outbox.log (used by tests and `--dry-run`)."""
     name = "outbox"
@@ -134,7 +181,7 @@ def build_channels(settings, http: HttpClient, dry_run: bool = False, root: Path
         return [Outbox((root or Path(".")) / "state" / "outbox.log")]
     out = []
     for name in settings.get("notify", "channels", ["telegram"]):
-        ch = Telegram(http) if name == "telegram" else WhatsApp(http) if name == "whatsapp" else None
+        ch = Telegram(http) if name == "telegram" else WhatsApp(http) if name == "whatsapp" else Email() if name == "email" else None
         if ch and ch.configured():
             out.append(ch)
         elif ch:
