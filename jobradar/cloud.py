@@ -154,7 +154,15 @@ def publish(out_dir: Path, settings, db, bot: str | None = None) -> dict:
     gh = (os.environ.get("JOBRADAR_TICK_TOKEN") or "").strip() or None
     html = render(data, mode="cloud", cloud={"bot": bot, "cv": tokens, "gh": gh})
     (out / "data.bin").write_bytes(encrypt(html.encode("utf-8"), key))
+    # the newest JobRadar Android app (fetched by the workflow from the private RankOne X repo), encrypted like everything
+    # else: the app's one-tap updater checks app.ver.bin and installs app.bin – only your key can open either
+    apk = os.environ.get("RANKONEX_APK")
+    app_build = None
+    if apk and Path(apk).is_file():
+        app_build = int(os.environ.get("RANKONEX_APK_BUILD") or 0)
+        (out / "app.bin").write_bytes(encrypt(Path(apk).read_bytes(), key))
+        (out / "app.ver.bin").write_bytes(encrypt(json.dumps({"build": app_build, "size": Path(apk).stat().st_size}).encode(), key))
     (out / "index.html").write_text(SHELL, encoding="utf-8")
     (out / ".nojekyll").write_text("", encoding="utf-8")
     (out / "robots.txt").write_text("User-agent: *\nDisallow: /\n", encoding="utf-8")
-    return {"cvs": len(tokens), "dashboard_bytes": len(html)}
+    return {"cvs": len(tokens), "dashboard_bytes": len(html), "app_build": app_build}

@@ -196,6 +196,21 @@ jobs:
           git -c user.name=jobradar-bot -c user.email=41898282+github-actions[bot]@users.noreply.github.com commit -q -m "encrypted state $(date -u +%FT%TZ)"
           git push -q -f "https://x-access-token:${GH_TOKEN}@github.com/${GITHUB_REPOSITORY}.git" state
 
+      - name: Newest Android app (for the app's one-tap updater)
+        if: always() && env.HAS_RANKONEX == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.RANKONEX_TOKEN }}
+        run: |
+          d="$RUNNER_TEMP/apk"; mkdir -p "$d"
+          if gh release download android-latest --repo Nishadwankhede1/rankonex --pattern JobRadar.apk -D "$d" --clobber >/dev/null 2>&1; then
+            b=$(gh release view android-latest --repo Nishadwankhede1/rankonex --json body --jq .body | sed -n 's/^Build \([0-9][0-9]*\).*/\1/p')
+            echo "RANKONEX_APK=$d/JobRadar.apk" >> "$GITHUB_ENV"
+            echo "RANKONEX_APK_BUILD=${b:-0}" >> "$GITHUB_ENV"
+            echo "app build ${b:-?} will be published (encrypted)"
+          else
+            echo "no app release found – skipped"
+          fi
+
       - name: Build encrypted dashboard
         id: pub
         if: always()
