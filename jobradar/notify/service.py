@@ -100,6 +100,26 @@ class Notifier:
                     log.warning("%s pack message failed: %s", ch.name, type(e).__name__)
         return sent
 
+    # ------------------------------------------------------------------ replies to your applications (e-mail)
+    def mail_status(self, events: list[dict]) -> int:
+        from ..external.status_mail import ALERT_KINDS
+        sent = 0
+        for e in events:
+            if e.get("kind") not in ALERT_KINDS:
+                continue
+            html_msg, plain = formatter.mail_status(e)
+            for ch in self.channels:
+                if self.db.scalar("SELECT 1 FROM notifications WHERE job_id=? AND channel=? AND kind='mail' AND content_hash=? AND status='sent'",
+                                  (e["job_id"], ch.name, e["id"])):
+                    continue
+                try:
+                    self._record(e["job_id"], ch.name, "mail", e["id"], "sent", ch.send(html_msg, plain))
+                    sent += 1
+                except Exception as ex:
+                    self._record(e["job_id"], ch.name, "mail", e["id"], "failed", error=f"{type(ex).__name__}: {str(ex)[:200]}")
+                    log.warning("%s application e-mail message failed: %s", ch.name, type(ex).__name__)
+        return sent
+
     # ------------------------------------------------------------------ immediate alerts
     def process_alerts(self) -> tuple[int, int]:
         if not self.channels:

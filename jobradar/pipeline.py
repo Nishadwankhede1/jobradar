@@ -482,9 +482,14 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
             notes.append(f"time budget reached – {deferred} sources deferred to next run")
     http.deadline = None
 
+    mail_status: list[dict] = []
     if include_email:
         leads, msg = fetch_email_leads(db)
         notes.append(msg)
+        from .external.status_mail import scan_status_mail
+        mail_status = scan_status_mail(db)
+        if mail_status:
+            notes.append(f"{len(mail_status)} application e-mail(s) to confirm")
         if leads:
             agg = {"id": "email-alerts", "name": "Job-alert e-mails", "kind": "aggregator", "industry": "", "priority": 3}
             if not db.one("SELECT 1 FROM companies WHERE id='email-alerts'"):
@@ -518,6 +523,7 @@ def run_scan(settings: Settings, db: Database, http: HttpClient, notifier: Notif
     sent = failed = 0
     if notifier:
         sent, failed = notifier.process_alerts()
+        notifier.mail_status(mail_status)
     packs_built: list[int] = []
     try:  # RankOne X apply packs (cloud, when set up): after the alerts, so a new job is never delayed by its pack
         from .config import ROOT

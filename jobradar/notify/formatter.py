@@ -140,6 +140,20 @@ def job_alert(job: dict, sc: dict, kind: str = "alert") -> tuple[str, str]:
     return "\n".join(h for h, _ in lines), "\n".join(p for _, p in lines)
 
 
+MAIL_LABEL = {"interview": "Interview invite", "assessment": "Assessment / test", "offer": "Offer", "rejected": "Rejection",
+              "received": "Application received"}
+
+
+def mail_status(e: dict) -> tuple[str, str]:
+    """An e-mail that looks like a reply to one of your applications – to confirm in the app."""
+    what = MAIL_LABEL.get(e.get("kind"), "Update")
+    head = f"📩 {what}? · {e.get('company') or ''} – {e.get('title') or ''}"
+    plain = f"{head}\n“{e.get('subject') or ''}” – from {e.get('sender') or ''}\nOpen JobRadar to confirm (it won't change anything until you do)."
+    html_msg = (f"<b>📩 {_e(what)}?</b> · {_e(e.get('company'))} – {_e(e.get('title'))}\n"
+                f"“{_e(e.get('subject'))}” – from {_e(e.get('sender'))}\n<i>Open JobRadar to confirm – nothing changes until you do.</i>")
+    return html_msg, plain
+
+
 def pack_ready(job: dict, pk: dict) -> tuple[str, str]:
     """Follow-up to an alert: the RankOne X resume for this job is ready (the PDF is attached on Telegram)."""
     import json as _json

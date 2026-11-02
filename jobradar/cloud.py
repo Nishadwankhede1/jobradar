@@ -87,7 +87,7 @@ button{margin-top:10px;font:600 15px system-ui;padding:10px 14px;border:0;border
 
 def apply_ticks(runs_json: Path, db) -> int:
     """Ticks sent from the dashboard arrive as titles of 'JobRadar tick' runs: "tick <base64url(JR1 ciphertext)>".
-    Each payload is a JSON list of {"id": job_id, "on": bool, "st": stage} (applied ticks) or {"sk": keyword, "on": bool}
+    Each payload is a JSON list of {"id": job_id, "on": bool, "st": stage} (applied ticks) or {"ms": e-mail suggestion id, "ok": bool} or {"sk": keyword, "on": bool}
     (skills you confirmed for your CVs) or {"nr": job_id, "on": bool} (jobs you marked "Not relevant"). Only payloads that decrypt with your key
     are accepted (nobody else can forge one), and each run is applied once."""
     import base64
@@ -113,6 +113,10 @@ def apply_ticks(runs_json: Path, db) -> int:
                 n += bool(set_user_skill(db, str(it["sk"]), bool(it.get("on", True))))
                 continue
             if (it.get("r") or "uae") != REGION:  # an Applied tick from the other dashboard (UAE ↔ Europe)
+                continue
+            if it.get("ms"):  # your answer to "📩 Looks like an interview invite" (e-mail status suggestion)
+                from .external.status_mail import resolve
+                n += bool(resolve(db, str(it["ms"]), bool(it.get("ok"))))
                 continue
             if it.get("nr") is not None:  # "Not relevant" – hide this job (and its reposts) for good
                 try:
