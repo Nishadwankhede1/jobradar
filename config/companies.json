@@ -6212,7 +6212,8 @@
     36
    ],
    "link_pattern": "lifeattiktok\\.com/search/\\d+$",
-   "wait_ms": 6000
+   "wait_ms": 6000,
+   "engine": "chrome"
   },
   "dubai_presence": "META regional HQ in Dubai",
   "job_families": [
