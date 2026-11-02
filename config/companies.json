@@ -1095,10 +1095,18 @@
   "careers_url": "https://careers.gemseducation.com/en/job-search-results/",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "manual",
-  "ats_config": {},
-  "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "ats": "browser",
+  "ats_config": {
+   "urls": [
+    "https://careers.gemseducation.com/en/job-search-results/"
+   ],
+   "link_pattern": "careers\\.gemseducation\\.com/en/uae/jobs/[a-z0-9-]+-\\d{5,}",
+   "engine": "chrome",
+   "wait_ms": 8000,
+   "all_uae": true
+  },
+  "verified": true,
+  "verification_note": "Pilot 3 Nov 2026 (GitHub Actions, robots.txt obeyed): the job list is drawn by JavaScript; only full Chrome reads it (Lightpanda: 0); 10-20 jobs (all /uae/).",
   "live_uae_jobs": null
  },
  {
@@ -1665,10 +1673,18 @@
   "careers_url": "https://raqmiyat.zohorecruit.com/jobs/Careers",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "manual",
-  "ats_config": {},
-  "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "ats": "browser",
+  "ats_config": {
+   "urls": [
+    "https://raqmiyat.zohorecruit.com/jobs/Careers"
+   ],
+   "link_pattern": "zohorecruit\\.com/jobs/Careers/\\d{6,}",
+   "engine": "lightpanda",
+   "wait_ms": 8000,
+   "all_uae": true
+  },
+  "verified": true,
+  "verification_note": "Pilot 3 Nov 2026 (GitHub Actions, robots.txt obeyed): the job list is drawn by JavaScript; Lightpanda read 22-25 jobs (Zoho Recruit).",
   "live_uae_jobs": null
  },
  {
@@ -2233,7 +2249,7 @@
   "ats": "manual",
   "ats_config": {},
   "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "verification_note": "Pilot 3 Nov 2026: the openings list didn't render in Lightpanda over CDP (plain page dump showed 4-7 Dubai sales roles) – kept on LinkedIn / job-alert e-mails",
   "live_uae_jobs": null
  },
  {
@@ -3241,10 +3257,18 @@
   "careers_url": "https://careers.dubaifuture.gov.ae/en/job-search-results/",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "manual",
-  "ats_config": {},
-  "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "ats": "browser",
+  "ats_config": {
+   "urls": [
+    "https://careers.dubaifuture.gov.ae/en/job-search-results/"
+   ],
+   "link_pattern": "careers\\.dubaifuture\\.gov\\.ae/en/uae/jobs/[a-z0-9-]+",
+   "engine": "lightpanda",
+   "wait_ms": 8000,
+   "all_uae": true
+  },
+  "verified": true,
+  "verification_note": "Pilot 3 Nov 2026 (GitHub Actions, robots.txt obeyed): the job list is drawn by JavaScript; Lightpanda read 3-6 jobs (all /uae/).",
   "live_uae_jobs": null
  },
  {
@@ -3454,10 +3478,17 @@
   "careers_url": "https://careers.epam.com/en/jobs",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "manual",
-  "ats_config": {},
-  "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "ats": "browser",
+  "ats_config": {
+   "urls": [
+    "https://careers.epam.com/en/jobs/united_arab_emirates"
+   ],
+   "link_pattern": "careers\\.epam\\.com/en/vacancy/[a-z0-9-]+_en",
+   "engine": "chrome",
+   "wait_ms": 8000
+  },
+  "verified": true,
+  "verification_note": "Pilot 3 Nov 2026 (GitHub Actions, robots.txt obeyed): the job list is drawn by JavaScript; only full Chrome reads it (Lightpanda: 0); UAE page, cards checked for the city.",
   "live_uae_jobs": null
  },
  {
@@ -5520,10 +5551,17 @@
   "careers_url": "https://www.rivoligroup.com/careers/vacancies",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "manual",
-  "ats_config": {},
-  "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "ats": "browser",
+  "ats_config": {
+   "urls": [
+    "https://www.rivoligroup.com/careers/vacancies"
+   ],
+   "link_pattern": "rivoligroup\\.com/careers/vacancies/[a-z0-9-]+/?$",
+   "engine": "lightpanda",
+   "wait_ms": 8000
+  },
+  "verified": true,
+  "verification_note": "Pilot 3 Nov 2026 (GitHub Actions, robots.txt obeyed): the job list is drawn by JavaScript; Lightpanda read 7 jobs; cards name the city (Dubai / UAE / Bahrain).",
   "live_uae_jobs": null
  },
  {
@@ -5559,10 +5597,17 @@
   "careers_url": "https://www.rolandberger.com/en/Join/All-Jobs/",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "manual",
-  "ats_config": {},
-  "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "ats": "browser",
+  "ats_config": {
+   "urls": [
+    "https://www.rolandberger.com/en/Join/All-Jobs/"
+   ],
+   "link_pattern": "rolandberger\\.jobs/en/REF\\w+",
+   "engine": "lightpanda",
+   "wait_ms": 8000
+  },
+  "verified": true,
+  "verification_note": "Pilot 3 Nov 2026 (GitHub Actions, robots.txt obeyed): the job list is drawn by JavaScript; Lightpanda read 145 jobs worldwide; cards name the office, so only UAE ones are kept.",
   "live_uae_jobs": null
  },
  {
@@ -6019,7 +6064,7 @@
   "ats": "manual",
   "ats_config": {},
   "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "verification_note": "Pilot 3 Nov 2026: full Chrome reads the list, but the first page shows only global jobs (no UAE filter in the URL) – kept on LinkedIn / job-alert e-mails",
   "live_uae_jobs": null
  },
  {
@@ -6046,10 +6091,18 @@
   "careers_url": "https://careers.taaleem.ae/en/job-search/",
   "discovered_in": "user list 14 Oct 2026",
   "kind": "employer",
-  "ats": "manual",
-  "ats_config": {},
-  "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "ats": "browser",
+  "ats_config": {
+   "urls": [
+    "https://careers.taaleem.ae/en/job-search/"
+   ],
+   "link_pattern": "careers\\.taaleem\\.ae/en/uae/jobs/[a-z0-9-]+-\\d{6,}",
+   "engine": "lightpanda",
+   "wait_ms": 8000,
+   "all_uae": true
+  },
+  "verified": true,
+  "verification_note": "Pilot 3 Nov 2026 (GitHub Actions, robots.txt obeyed): the job list is drawn by JavaScript; Lightpanda read 10 jobs (all /uae/).",
   "live_uae_jobs": null
  },
  {
@@ -8303,7 +8356,7 @@
   "ats": "manual",
   "ats_config": {},
   "verified": false,
-  "verification_note": "Checked 15 Oct 2026 by web fetch: the job list loads by JavaScript, so a page check sees no titles – covered by LinkedIn company alerts / job-alert e-mails",
+  "verification_note": "Pilot 3 Nov 2026: full Chrome reads the RippleHire list, but no UAE jobs were listed – kept on LinkedIn / job-alert e-mails",
   "live_uae_jobs": null
  },
  {

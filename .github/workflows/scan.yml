@@ -79,6 +79,17 @@ jobs:
       - name: Install
         run: pip install --quiet -r requirements-cloud.txt
 
+      - name: Browsers for JavaScript-only careers sites (Lightpanda + the runner's own Chrome)
+        # Playwright is only the remote control: Lightpanda (light, ~2-3 s a page) or the Google Chrome GitHub's runner
+        # already has draws the page. A failed download just leaves those few sources failing for this scan.
+        continue-on-error: true
+        run: |
+          pip install --quiet playwright==1.48.0
+          curl -sfL -o "$RUNNER_TEMP/lightpanda" https://github.com/lightpanda-io/browser/releases/download/nightly/lightpanda-x86_64-linux
+          chmod a+x "$RUNNER_TEMP/lightpanda"
+          echo "LIGHTPANDA_BIN=$RUNNER_TEMP/lightpanda" >> "$GITHUB_ENV"
+          "$RUNNER_TEMP/lightpanda" version
+
       - name: RankOne X setup
         if: env.HAS_RANKONEX == 'true'
         env:
