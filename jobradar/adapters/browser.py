@@ -116,6 +116,10 @@ class Browser(Adapter):
                     rows.setdefault(href, c)
                 if not found:
                     break
+            # each job page takes a few seconds in a browser: at most 15 per run, and never past the scan's time budget
+            # (the rest are opened on the next runs – the job is listed meanwhile with its card text)
+            max_details = min(ctx.max_detail_fetches, int(self.cfg(company, "max_details", 15, required=False)))
+            deadline = getattr(self.http, "deadline", None)
             for href, c in rows.items():
                 card = norm_space(c.get("card"))
                 title = norm_space((c.get("title") or "").strip().split("\n")[0])
@@ -123,7 +127,7 @@ class Browser(Adapter):
                     continue
                 jid = (re.search(r"(\d{6,})", href) or [None, href])[1]
                 desc = None
-                if want_detail and self.need_detail(ctx, jid, None) and details < ctx.max_detail_fetches \
+                if want_detail and self.need_detail(ctx, jid, None) and details < max_details and (deadline is None or time.monotonic() < deadline - 20) \
                         and self.http.allowed_by_robots(href):
                     details += 1
                     pg.goto(href, wait_until=until, timeout=45000)

@@ -458,7 +458,19 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: pages
-      - uses: actions/deploy-pages@v4
+          name: site-uae-pages                 # its own name: a run can publish twice (UAE, then Europe)
+      - id: d1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+        with:
+          artifact_name: site-uae-pages
+      - name: Publish again if GitHub hadn't registered the upload yet
+        if: steps.d1.outcome == 'failure'
+        run: sleep 30
+      - if: steps.d1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: site-uae-pages
 
   deploy_eu:
     # the same site again once the Europe scan has finished (latest UAE dashboard + this Europe one)
@@ -489,7 +501,19 @@ jobs:
       - uses: actions/upload-pages-artifact@v3
         with:
           path: pages
-      - uses: actions/deploy-pages@v4
+          name: site-eu-pages                 # its own name: a run can publish twice (UAE, then Europe)
+      - id: d1
+        uses: actions/deploy-pages@v4
+        continue-on-error: true
+        with:
+          artifact_name: site-eu-pages
+      - name: Publish again if GitHub hadn't registered the upload yet
+        if: steps.d1.outcome == 'failure'
+        run: sleep 30
+      - if: steps.d1.outcome == 'failure'
+        uses: actions/deploy-pages@v4
+        with:
+          artifact_name: site-eu-pages
 
   next:
     needs: [scan, scan_eu, deploy, deploy_eu]
