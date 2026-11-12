@@ -26,7 +26,12 @@ on:
 
 # GitHub's timer is best-effort and often fires only every few hours, so each scan also starts the next one
 # ~15 minutes after it began (job `next`). Turn the chain off with the repository variable SCAN_CHAIN = off;
-# change the gap with SCAN_GAP_MINUTES (default 15). The timer above stays as a backup that restarts the chain.
+# change the gap with SCAN_GAP_MINUTES (default 15). The timer above stays as a backup that restarts the chain,
+# and the phone app restarts it too when the dashboard goes stale.
+#
+# The UAE dashboard is published as soon as the UAE scan ends (job `deploy`). The Europe scan takes ~20 minutes, so it
+# runs only when its last one is older than EU_GAP_MINUTES (default 60) and publishes separately (job `deploy_eu`);
+# on the other runs the next UAE scan starts on time instead of waiting for Europe.
 
 permissions:
   contents: write
@@ -43,6 +48,7 @@ jobs:
       cancel-in-progress: false
     outputs:
       published: ${{ steps.pub.outputs.published }}
+      eu_due: ${{ steps.eu.outputs.due }}
     env:
       JOBRADAR_KEY: ${{ secrets.JOBRADAR_KEY }}
       PYTHONUTF8: "1"
@@ -163,6 +169,7 @@ jobs:
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           JOBRADAR_TELEGRAM_COMMANDS: "1"
           JOBRADAR_MAX_RUNTIME: "480"
+          JOBRADAR_BROWSER: "1"          # read the JavaScript-only careers sites too (browsers installed above)
         run: |
           mkdir -p state
           FORCE=""; [ "${{ github.event.inputs.force }}" = "true" ] && FORCE="--force"
@@ -240,12 +247,30 @@ jobs:
           path: pages
           key: site-uae-${{ github.run_id }}-${{ github.run_attempt }}
 
+      - name: Is the Europe scan due? (about hourly, so UAE results are never held up by it)
+        id: eu
+        if: always()
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          EU_GAP: ${{ vars.EU_GAP_MINUTES || '60' }}
+        run: |
+          due=true
+          last=$(gh api "repos/${GITHUB_REPOSITORY}/actions/caches?key=site-eu-&sort=created_at&direction=desc&per_page=1" --jq '.actions_caches[0].created_at // empty' 2>/dev/null || true)
+          if [ -n "$last" ]; then
+            age=$(( ( $(date -u +%s) - $(date -u -d "$last" +%s) ) / 60 ))
+            echo "last Europe dashboard: $age min ago (gap $EU_GAP)"
+            if [ "$age" -lt "$EU_GAP" ]; then due=false; fi
+          fi
+          echo "due=$due" >> "$GITHUB_OUTPUT"
+
   scan_eu:
     # Europe instance (Netherlands → Germany → UK). Switch on with the repository variable EU_ENABLED = true.
     # Runs after the UAE scan, never at the same time: many employers are read from the same Workday / Oracle servers,
     # which refuse callers that ask too often.
     needs: scan
-    if: always() && vars.EU_ENABLED == 'true'
+    if: >-
+      always() && vars.EU_ENABLED == 'true' &&
+      (needs.scan.outputs.eu_due != 'false' || github.event.inputs.force == 'true' || github.event.inputs.quick == 'true')
     runs-on: ubuntu-latest
     timeout-minutes: 40
     concurrency:              # one scan at a time (they share the encrypted database)
@@ -405,9 +430,10 @@ jobs:
           key: site-eu-${{ github.run_id }}-${{ github.run_attempt }}
 
   deploy:
-    needs: [scan, scan_eu]
-    if: always() && (needs.scan.outputs.published == 'true' || needs.scan_eu.outputs.published == 'true')
+    needs: scan
+    if: always() && needs.scan.outputs.published == 'true'
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     concurrency:
       group: jobradar-pages
       cancel-in-progress: false
@@ -434,8 +460,39 @@ jobs:
           path: pages
       - uses: actions/deploy-pages@v4
 
+  deploy_eu:
+    # the same site again once the Europe scan has finished (latest UAE dashboard + this Europe one)
+    needs: [scan_eu, deploy]
+    if: always() && needs.scan_eu.outputs.published == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    concurrency:
+      group: jobradar-pages
+      cancel-in-progress: false
+    environment:
+      name: github-pages
+    steps:
+      - uses: actions/cache/restore@v4
+        with:
+          path: pages
+          key: site-uae-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: site-uae-
+      - uses: actions/cache/restore@v4
+        with:
+          path: pages/eu
+          key: site-eu-${{ github.run_id }}-${{ github.run_attempt }}
+          restore-keys: site-eu-
+      - name: Check the site
+        run: |
+          [ -f pages/index.html ] || { echo "::error::no UAE dashboard build found"; exit 1; }
+          ls pages
+      - uses: actions/upload-pages-artifact@v3
+        with:
+          path: pages
+      - uses: actions/deploy-pages@v4
+
   next:
-    needs: [scan, scan_eu, deploy]
+    needs: [scan, scan_eu, deploy, deploy_eu]
     if: always() && github.event.inputs.quick != 'true' && vars.SCAN_CHAIN != 'off'
     runs-on: ubuntu-latest
     timeout-minutes: 20
@@ -454,13 +511,20 @@ jobs:
           api = f"https://api.github.com/repos/{os.environ['GITHUB_REPOSITORY']}/actions"
           me = int(os.environ["GITHUB_RUN_ID"])
           def call(path, data=None):
-              req = urllib.request.Request(api + path, data=json.dumps(data).encode() if data else None,
-                                           method="POST" if data else "GET",
-                                           headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
-                                                    "Accept": "application/vnd.github+json"})
-              with urllib.request.urlopen(req, timeout=30) as r:
-                  body = r.read()
-                  return json.loads(body) if body else {}
+              # a dropped connection here used to end the chain for hours → retry with growing pauses
+              for attempt in range(6):
+                  try:
+                      req = urllib.request.Request(api + path, data=json.dumps(data).encode() if data else None,
+                                                   method="POST" if data else "GET",
+                                                   headers={"Authorization": "Bearer " + os.environ["GH_TOKEN"],
+                                                            "Accept": "application/vnd.github+json"})
+                      with urllib.request.urlopen(req, timeout=30) as r:
+                          body = r.read()
+                          return json.loads(body) if body else {}
+                  except Exception as e:
+                      if attempt == 5:
+                          raise
+                      print(f"GitHub API hiccup ({type(e).__name__}) - retry {attempt + 1}/5"); time.sleep(10 * (attempt + 1))
           started = datetime.fromisoformat(call(f"/runs/{me}")["run_started_at"].replace("Z", "+00:00")).timestamp()
           wait = min(900, started + max(5, int(os.environ["GAP"] or 15)) * 60 - time.time())
           if wait > 0:

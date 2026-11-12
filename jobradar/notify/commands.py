@@ -80,10 +80,11 @@ def parse_shared_job(text: str) -> dict | None:
             "description": desc if len(desc) >= 120 else None}
 
 
-def add_shared_job(db, text: str, when: int | None = None) -> str | None:
+def add_shared_job(db, text: str, when: int | None = None, via: str = "Telegram", fields: dict | None = None) -> str | None:
+    """`fields` (url, title, company, location, description) skips the text parsing – the app sends what you confirmed."""
     from ..models import RawJob
     from ..pipeline import dedup, upsert_job
-    v = parse_shared_job(text)
+    v = fields or parse_shared_job(text)
     if v is None:
         return None
     if len(v["title"]) < 4:
@@ -96,9 +97,10 @@ def add_shared_job(db, text: str, when: int | None = None) -> str | None:
     source, ext = _job_ref(v["url"])
     rj = RawJob(source=source, external_id=ext, title=v["title"], url=v["url"], location=v["location"],
                 description=v["description"], company_name=v["company"], is_official=False,
-                extra={"via": "shared by you on Telegram"})
+                extra={"via": f"shared by you on {via}" if via == "Telegram" else f"shared by you from {via}"})
     jid, change = upsert_job(db, agg, rj, now_iso(), baseline=False)
-    db.update("jobs", {"id": jid}, {"verification": "unverified", "evidence": f"shared by you on Telegram {now_iso()[:16]}"})
+    db.update("jobs", {"id": jid}, {"verification": "unverified",
+                                    "evidence": f"shared by you {'on Telegram' if via == 'Telegram' else 'from ' + via} {now_iso()[:16]}"})
     dedup(db, [jid])
     db.kv_set("telegram_last_add", {"job": jid, "at": when or 0})
     db.commit()

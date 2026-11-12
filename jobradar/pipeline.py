@@ -297,8 +297,10 @@ def next_interval(settings: Settings, company: dict, src: dict, changed: bool, o
     last_change = parse_dt(now_iso() if changed else src.get("last_change_at"))
     if last_change and utcnow() - last_change < timedelta(days=7):
         return int(max(pol["min"], base * 0.5))
-    if not last_change or utcnow() - last_change > timedelta(days=14):
-        return int(min(pol["max"], base * 1.5))
+    if company.get("ats") == "browser":
+        return int(max(base, 60))     # a whole page is drawn each time → at most hourly, out of courtesy to the site
+    if (not last_change or utcnow() - last_change > timedelta(days=14)) and int(company.get("priority") or 3) > 1:
+        return int(min(pol["max"], base * 1.5))   # quiet for two weeks → a little less often (never for priority 1)
     return int(base)
 
 

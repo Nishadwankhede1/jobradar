@@ -12,7 +12,9 @@ from __future__ import annotations
 import io
 import json
 import os
+import re
 import tarfile
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 
 from .config import ROOT
@@ -96,6 +98,7 @@ def apply_ticks(runs_json: Path, db) -> int:
     key = parse_key()
     runs = (json.loads(Path(runs_json).read_text(encoding="utf-8")) or {}).get("workflow_runs") or []
     done = set(db.kv_get("ticks_done", []) or [])
+    parts = db.kv_get("tick_parts", {}) or {}   # multi-part ticks still waiting for their other pieces
     n = 0
     for run in sorted(runs, key=lambda r: r.get("created_at") or ""):
         rid, title = str(run.get("id")), run.get("display_title") or ""
@@ -104,7 +107,20 @@ def apply_ticks(runs_json: Path, db) -> int:
         done.add(rid)
         try:
             raw = title[5:].strip()
-            items = json.loads(decrypt(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)), key))
+            m = re.fullmatch(r"p:([A-Za-z0-9]{4,12}):(\d{1,2})/(\d{1,2}):([A-Za-z0-9_-]+)", raw)
+            if m:  # one piece of a longer tick (a shared job with its description): wait until all pieces are here
+                pid, i, total = m.group(1), int(m.group(2)), int(m.group(3))
+                got = parts.setdefault(pid, {"n": total, "at": run.get("created_at") or "", "p": {}})
+                got["p"][str(i)] = m.group(4)
+                if len(got["p"]) < got["n"]:
+                    continue
+                raw = "".join(got["p"][str(k)] for k in range(1, got["n"] + 1))
+                parts.pop(pid, None)
+            plain = decrypt(base64.urlsafe_b64decode(raw + "=" * (-len(raw) % 4)), key)
+            if plain[:2] == b"Z1":  # compressed (long text)
+                import zlib
+                plain = zlib.decompress(plain[2:])
+            items = json.loads(plain)
         except Exception:
             continue  # not ours / damaged → ignore
         for it in items if isinstance(items, list) else []:
@@ -113,6 +129,19 @@ def apply_ticks(runs_json: Path, db) -> int:
                 n += bool(set_user_skill(db, str(it["sk"]), bool(it.get("on", True))))
                 continue
             if (it.get("r") or "uae") != REGION:  # an Applied tick from the other dashboard (UAE ↔ Europe)
+                continue
+            if it.get("sh"):  # a job you shared to JobRadar from another app (link + title, optionally the description)
+                from .notify.commands import add_shared_job
+                desc = str(it.get("d") or "")[:12000].strip()
+                if it.get("t"):  # title / company confirmed by you in the app
+                    url = re.search(r"https?://\S+", str(it["sh"]))
+                    fields = {"url": url.group(0).rstrip(").,;") if url else "", "title": str(it["t"])[:140].strip(),
+                              "company": str(it.get("c") or "").strip()[:100] or "Unknown company",
+                              "location": str(it.get("l") or "").strip()[:80] or "United Arab Emirates",
+                              "description": desc if len(desc) >= 120 else None}
+                    n += bool(fields["url"] and add_shared_job(db, "", via="the JobRadar app", fields=fields))
+                else:
+                    n += bool(add_shared_job(db, str(it["sh"])[:400] + ("\n" + desc if desc else ""), via="the JobRadar app"))
                 continue
             if it.get("ms"):  # your answer to "📩 Looks like an interview invite" (e-mail status suggestion)
                 from .external.status_mail import resolve
@@ -132,6 +161,9 @@ def apply_ticks(runs_json: Path, db) -> int:
             except (KeyError, ValueError, TypeError):
                 continue
     db.kv_set("ticks_done", sorted(done, key=int)[-1000:])
+    # pieces whose other half never arrived are dropped after two days
+    cut = (datetime.now(timezone.utc) - timedelta(days=2)).strftime("%Y-%m-%dT%H:%M:%SZ")
+    db.kv_set("tick_parts", {k: v for k, v in parts.items() if (v.get("at") or "9") >= cut})
     db.commit()
     return n
 
