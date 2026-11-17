@@ -174,6 +174,29 @@ def apply_ticks(runs_json: Path, db) -> int:
     return n
 
 
+def share_links(data: dict, cv_dir: Path, key: bytes, settings) -> int:
+    """Tailored resumes of your strong matches as plain PDFs for your portfolio site – one link per job to paste in a
+    LinkedIn message: <PORTFOLIO_URL>cv/<random 24 characters>/<PORTFOLIO_RESUME_NAME>. The random part is derived from
+    your key (not guessable, never listed anywhere). Adds `cv_share` to those jobs. Off unless PORTFOLIO_URL is set."""
+    base, out = os.environ.get("PORTFOLIO_URL"), os.environ.get("PORTFOLIO_SHARE_DIR")
+    if not (base and out):
+        return 0
+    name = re.sub(r"[^A-Za-z0-9_.-]", "_", os.environ.get("PORTFOLIO_RESUME_NAME") or "Resume.pdf")
+    thr = float(data.get("threshold") or settings.get("scoring", "alert_threshold", 7.0))
+    n = 0
+    for j in data["jobs"]:
+        f = j.get("cv_file")
+        if not f or (j.get("score") or 0) < thr or not (cv_dir / f).is_file():
+            continue
+        t = token("share:" + f, key)[:24]
+        d = Path(out) / "cv" / t
+        d.mkdir(parents=True, exist_ok=True)
+        (d / name).write_bytes((cv_dir / f).read_bytes())
+        j["cv_share"] = f"{base.rstrip('/')}/cv/{t}/{name}"
+        n += 1
+    return n
+
+
 def publish(out_dir: Path, settings, db, bot: str | None = None) -> dict:
     """Write the encrypted site: index.html (opener), data.bin (dashboard), cv/<token>.bin (tailored CVs)."""
     from .dashboard import dashboard_data, render
@@ -193,6 +216,7 @@ def publish(out_dir: Path, settings, db, bot: str | None = None) -> dict:
         (out / "cv" / f"{t}.bin").write_bytes(encrypt(f.read_bytes(), key))
     # optional TICK_TOKEN secret (fine-grained, Actions-only on this repo): travels inside the encrypted page so every
     # device that opens your private link can save ticks without its own setup
+    share_links(data, cv_dir, key, settings)
     gh = (os.environ.get("JOBRADAR_TICK_TOKEN") or "").strip() or None
     html = render(data, mode="cloud", cloud={"bot": bot, "cv": tokens, "gh": gh})
     (out / "data.bin").write_bytes(encrypt(html.encode("utf-8"), key))

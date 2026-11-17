@@ -235,10 +235,35 @@ jobs:
         env:
           TELEGRAM_BOT_TOKEN: ${{ secrets.TELEGRAM_BOT_TOKEN }}
           JOBRADAR_TICK_TOKEN: ${{ secrets.TICK_TOKEN }}
+          # tailored resumes you can link in LinkedIn messages: copied (unencrypted, under long random paths) to your
+          # portfolio site – only when the PORTFOLIO_TOKEN secret exists
+          PORTFOLIO_URL: ${{ secrets.PORTFOLIO_TOKEN != '' && format('https://{0}.github.io/', github.repository_owner) || '' }}
+          PORTFOLIO_SHARE_DIR: ${{ runner.temp }}/share
+          PORTFOLIO_RESUME_NAME: Nishad_Wankhede_Resume.pdf
         run: |
           [ -f state/jobradar.db ] || exit 0
           python -m jobradar cloud-publish pages > /dev/null
           echo "published=true" >> "$GITHUB_OUTPUT"
+
+      - name: Resume links on your portfolio site
+        if: always() && steps.pub.outputs.published == 'true'
+        env:
+          PORTFOLIO_TOKEN: ${{ secrets.PORTFOLIO_TOKEN }}
+          SHARE: ${{ runner.temp }}/share
+          OWNER: ${{ github.repository_owner }}
+        run: |
+          [ -n "$PORTFOLIO_TOKEN" ] && [ -d "$SHARE/cv" ] || { echo "no portfolio token – skipped"; exit 0; }
+          for i in 1 2 3; do
+            rm -rf site && git clone -q --depth 1 "https://x-access-token:${PORTFOLIO_TOKEN}@github.com/${OWNER}/${OWNER}.github.io.git" site || { sleep 5; continue; }
+            mkdir -p site/cv && cp -r "$SHARE/cv/." site/cv/           # updates and adds – never removes, so links you sent keep working
+            cd site
+            git add cv
+            if git diff --cached --quiet; then echo "resume links up to date"; exit 0; fi
+            git -c user.name="JobRadar" -c user.email="jobradar@users.noreply.github.com" commit -q -m "Resume links"
+            git push -q && { echo "resume links published"; exit 0; }
+            cd .. ; sleep 5
+          done
+          echo "::warning::couldn't publish resume links to the portfolio site"
 
       - name: Keep this dashboard for the combined site (UAE at /, Europe at /eu/)
         if: always() && steps.pub.outputs.published == 'true'
