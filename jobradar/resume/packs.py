@@ -23,7 +23,8 @@ from ..util import log, now_iso
 from .service import cv_filename
 
 # bump to rebuild every recent pack once (e.g. after a rendering fix: v2 = the CV's own font in the cloud)
-PACK_VERSION = "v2"
+# v3 = form answers no longer call an ended job "current"
+PACK_VERSION = "v3"
 SHORT = 400  # characters: below this the posting text is a title/teaser, not a description
 
 
