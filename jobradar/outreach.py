@@ -58,6 +58,11 @@ def parse_notice(sender: str, subject: str) -> tuple[str, str] | None:
         m = rx.search(subj)
         if m:
             name = m.group("n").strip(" .,!:-")
+            # LinkedIn's subject has only the first name ("Erik accepted your invitation, explore their network");
+            # the sender has it in full ("Erik Osman via LinkedIn <invitations@linkedin.com>")
+            full = re.match(r'^\s*"?(.+?)\s+via LinkedIn', sender or "", re.I)
+            if full and _norm(full.group(1)).split()[:1] == _norm(name).split()[:1]:
+                name = full.group(1).strip()
             if 2 <= len(name) <= 80 and not re.search(r"\b(linkedin|jobs?|people|connections?)\b", name, re.I):
                 return kind, name
     return None
