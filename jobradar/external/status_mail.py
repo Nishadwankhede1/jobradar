@@ -120,8 +120,10 @@ def scan_status_mail(db, days: int = 21, max_messages: int = 300) -> list[dict]:
     """New suggestions found in the mailbox (also stored in kv `mail_status`). Never raises."""
     host, user, pwd = os.environ.get("IMAP_HOST") or "imap.gmail.com", os.environ.get("IMAP_USER"), os.environ.get("IMAP_PASSWORD")
     from ..applications import all_applications
+    from .. import outreach
     apps = [a for a in all_applications(db) if (a.get("status") or "applied") not in ("withdrawn",)]
-    if not (user and pwd and apps):
+    people = db.kv_get(outreach.KV_PEOPLE, []) or []
+    if not (user and pwd and (apps or people)):
         return []
     seen = set(db.kv_get(KV_SEEN, []) or [])
     events = db.kv_get(KV_EVENTS, []) or []
@@ -148,7 +150,15 @@ def scan_status_mail(db, days: int = 21, max_messages: int = 300) -> list[dict]:
                 continue
             seen.add(key)
             sender = _hdr(head.get("From"))
-            if SKIP_SENDERS.search(sender) or user.lower() in sender.lower():
+            notice = outreach.parse_notice(sender, _hdr(head.get("Subject")))
+            if notice:                                     # "<Name> accepted your invitation" / "sent you a message"
+                try:
+                    when = iso(parsedate_to_datetime(head.get("Date")))
+                except Exception:
+                    when = now_iso()
+                outreach.note_event(db, notice[0], notice[1], when)
+                continue
+            if not apps or SKIP_SENDERS.search(sender) or user.lower() in sender.lower():
                 continue
             _, md = M.fetch(mid, "(BODY.PEEK[])")
             msg = email.message_from_bytes(md[0][1])

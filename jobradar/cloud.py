@@ -90,7 +90,8 @@ button{margin-top:10px;font:600 15px system-ui;padding:10px 14px;border:0;border
 def apply_ticks(runs_json: Path, db) -> int:
     """Ticks sent from the dashboard arrive as titles of 'JobRadar tick' runs: "tick <base64url(JR1 ciphertext)>".
     Each payload is a JSON list of {"id": job_id, "on": bool, "st": stage} (applied ticks) or {"ms": e-mail suggestion id, "ok": bool} or {"sk": keyword, "on": bool}
-    (skills you confirmed for your CVs) or {"nr": job_id, "on": bool} (jobs you marked "Not relevant"). Only payloads that decrypt with your key
+    (skills you confirmed for your CVs) or {"nr": job_id, "on": bool} (jobs you marked "Not relevant") or {"ox": person id, …}
+    (people you reached out to, see outreach.py). Only payloads that decrypt with your key
     are accepted (nobody else can forge one), and each run is applied once."""
     import base64
     from .applications import STATUSES, set_applied, set_not_relevant
@@ -128,6 +129,10 @@ def apply_ticks(runs_json: Path, db) -> int:
                 from .resume.myskills import set_user_skill
                 n += bool(set_user_skill(db, str(it["sk"]), bool(it.get("on", True))))
                 continue
+            if isinstance(it, dict) and it.get("ox"):  # someone you reached out to on LinkedIn (and why)
+                from .outreach import save
+                n += bool(save(db, it))
+                continue
             if (it.get("r") or "uae") != REGION:  # an Applied tick from the other dashboard (UAE ↔ Europe)
                 continue
             if it.get("sh"):  # a job you shared to JobRadar from another app (link + title, optionally the description)
@@ -139,7 +144,8 @@ def apply_ticks(runs_json: Path, db) -> int:
                               "company": str(it.get("c") or "").strip()[:100] or "Unknown company",
                               "location": str(it.get("l") or "").strip()[:80] or "United Arab Emirates",
                               "description": desc if len(desc) >= 120 else None}
-                    n += bool(fields["url"] and add_shared_job(db, "", via="the JobRadar app", fields=fields))
+                    via = str(it.get("v") or "").strip()[:60] or "the JobRadar app"   # e.g. "phone search (LinkedIn)"
+                    n += bool(fields["url"] and add_shared_job(db, "", via=via, fields=fields))
                 else:
                     n += bool(add_shared_job(db, str(it["sh"])[:400] + ("\n" + desc if desc else ""), via="the JobRadar app"))
                 continue

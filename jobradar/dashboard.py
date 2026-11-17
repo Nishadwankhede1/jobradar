@@ -81,9 +81,11 @@ def dashboard_data(db: Database, settings) -> dict:
     runs = db.q("SELECT * FROM scan_runs ORDER BY id DESC LIMIT 30")
     from .applications import all_applications, not_relevant
     from .external.status_mail import recent as mail_recent
+    from .outreach import listing as outreach_listing
     apps = all_applications(db)
     from .resume.myskills import get_user_skills
     return {"stats": coverage_stats(db, thr), "jobs": jobs, "sources": sources, "runs": runs, "applications": apps, "not_relevant": not_relevant(db), "mail_status": mail_recent(db),
+            "outreach": outreach_listing(db),
             "user_skills": [x["term"] for x in get_user_skills(db)],
             "threshold": thr, "title": settings.get("dashboard", "title", "JobRadar"), "region": region_info()}
 
