@@ -2,7 +2,8 @@
 # Order = priority.
 
 [region]
-countries = ["nl", "de", "uk"]
+# Germany first, then the Netherlands. "uk" can be added back – its register, employers and visa minimum are still here.
+countries = ["de", "nl"]
 # Gross monthly salary (EUR) a Dutch "highly skilled migrant" permit needs in 2026 (IND): 30+ = 5942, under 30 = 4357,
 # reduced criterion (recent graduate / orientation year) = 3122. Used only to flag low offers, never to hide jobs.
 nl_hsm_monthly_min = 4357
@@ -35,7 +36,7 @@ min = 30
 max = 360
 
 [dashboard]
-title = "JobRadar · Netherlands, Germany & UK (visa-friendly, English-speaking)"
+title = "JobRadar · Germany & Netherlands (visa-friendly, English-speaking)"
 
 [notify]
 tag = "EU"                          # alerts start with the country flag, e.g. 🇳🇱
@@ -43,3 +44,6 @@ digest_hour_dubai = 9
 
 [resume]
 output_dir = "output/resumes_eu"   # tailored CVs for Europe jobs, kept apart from the UAE ones
+
+[packs]
+output_dir = "output/packs_eu"     # RankOne X packs are folders named by job id – Europe ids would clash with UAE ones

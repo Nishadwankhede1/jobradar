@@ -1,4 +1,4 @@
-"""Compliant coverage for LinkedIn, Indeed, Bayt, GulfTalent, Naukrigulf, Glassdoor, Foundit:
+"""Compliant coverage for LinkedIn, Indeed, Bayt, GulfTalent, Naukrigulf, Glassdoor, Foundit, StepStone, XING:
 set up job alerts on those sites (to a dedicated Gmail/Outlook address) and JobRadar reads the alert e-mails over
 IMAP with an app password. No scraping of those platforms happens.
 
@@ -19,14 +19,21 @@ from ..util import log, norm_space, utcnow
 
 PLATFORMS = {
     "linkedin": (re.compile(r"linkedin\.com/(?:comm/)?jobs/view/(\d+)"), "https://www.linkedin.com/jobs/view/{id}/"),
-    "indeed": (re.compile(r"indeed\.com/[^\s\"']*?\bjk=([0-9a-f]{8,})"), "https://ae.indeed.com/viewjob?jk={id}"),
+    # {host}: the country site the alert came from (de.indeed.com, nl.indeed.com…); a job key only opens on its own site
+    "indeed": (re.compile(r"indeed\.com/[^\s\"']*?\bjk=([0-9a-f]{8,})"), "https://{host}/viewjob?jk={id}"),
     "bayt": (re.compile(r"bayt\.com/en/[a-z-]+/jobs/[^\s\"'?]*?-(\d{5,})/?"), None),
     "gulftalent": (re.compile(r"gulftalent\.com/[^\s\"']*?jobs/[^\s\"'?]*?-(\d{4,})"), None),
     "naukrigulf": (re.compile(r"naukrigulf\.com/[^\s\"'?]*?-jid-(\d+)"), None),
     "glassdoor": (re.compile(r"glassdoor\.[a-z.]+/[^\s\"']*?(?:jobListingId|jl)=(\d+)"), None),
     "foundit": (re.compile(r"foundit\.(?:ae|in|com)/[^\s\"']*?job/[^\s\"'?]*?-(\d{5,})"), None),
+    # Germany / Netherlands (Europe instance): stepstone.de/stellenangebote--Title-City-Company--12345678-inline.html,
+    # xing.com/jobs/city-title-123456789
+    "stepstone": (re.compile(r"stepstone\.(?:de|nl)/[^\s\"']*?--(\d{6,})(?:-inline)?\.html"), None),
+    "xing": (re.compile(r"xing\.com/jobs/[^\s\"'?]*?-(\d{6,})"), None),
 }
-SENDER_HINTS = ("linkedin", "indeed", "bayt", "gulftalent", "naukrigulf", "glassdoor", "foundit", "monster")
+SENDER_HINTS = ("linkedin", "indeed", "bayt", "gulftalent", "naukrigulf", "glassdoor", "foundit", "monster",
+                "stepstone", "xing")
+INDEED_HOST = re.compile(r"\b((?:[a-z]{2}\.)?indeed\.com)\b", re.I)
 
 
 def load_employer_alerts(path=None) -> list[dict]:
@@ -146,7 +153,9 @@ def parse_alert_email(html_body: str, sender: str = "") -> list[RawJob]:
             company = after[0] if after else None
             location = next((a for a in after[1:] if re.search(r"dubai|uae|emirates|abu dhabi|sharjah|remote", a, re.I)),
                             after[1] if len(after) > 1 else "")
-            url = canon.format(id=m.group(1)) if canon else href.split("?")[0]
+            host = INDEED_HOST.search(href)
+            host = host.group(1).lower() if host and host.group(1).count(".") == 2 else "ae.indeed.com"
+            url = canon.format(id=m.group(1), host=host) if canon else href.split("?")[0]
             out[m.group(1)] = RawJob(source=f"email:{name}", external_id=m.group(1), title=text, url=url,
                                      location=location or "", description=None, company_name=company,
                                      is_official=False, extra={"via": f"{name} alert e-mail", "sender": sender})

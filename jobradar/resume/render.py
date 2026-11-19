@@ -32,6 +32,13 @@ def _fonts() -> tuple[str, str]:
     return _FONTS
 
 
+def _contact(c) -> str:
+    """A contact item: plain text, or {"text": "LinkedIn", "url": "https://…"} drawn as a clickable label."""
+    if isinstance(c, dict):
+        return f'<a href="{escape(c["url"], {chr(34): "&quot;"})}">{escape(c["text"])}</a>' if c.get("url") else escape(c["text"])
+    return escape(c)
+
+
 def _story(cv: dict, k: float):
     from reportlab.lib.colors import HexColor
     from reportlab.lib.styles import ParagraphStyle
@@ -60,7 +67,7 @@ def _story(cv: dict, k: float):
                                                        spaceBefore=1.5 * k, spaceAfter=5 * k)]
 
     out = [Paragraph(e(cv["name"]), s_name), Paragraph(e(cv["headline"]), s_head),
-           Paragraph("&nbsp;&nbsp;|&nbsp;&nbsp;".join(e(c) for c in cv["contact"]), s_contact)]
+           Paragraph("&nbsp;&nbsp;|&nbsp;&nbsp;".join(_contact(c) for c in cv["contact"]), s_contact)]
     if cv.get("availability"):
         out.append(Paragraph(e(cv["availability"]), s_avail))
     summ = cv["summary"]

@@ -1,4 +1,5 @@
-"""Build config/companies_eu.json for the Europe instance (JOBRADAR_REGION=eu) – Netherlands, Germany and UK employers.
+"""Build config/companies_eu.json for the Europe instance (JOBRADAR_REGION=eu) – employers in the enabled countries
+(config/regions/eu.toml: Germany and the Netherlands; UK employers are kept below for when "uk" is switched back on).
 
 1. Global employers already verified for the UAE list whose ATS feed covers every country (Workday, Greenhouse,
    Lever, Ashby, SmartRecruiters, Workable, Recruitee) – the adapters keep only jobs in the enabled countries.
@@ -89,6 +90,18 @@ DE_EMPLOYERS = [
     ("Omio", ["omio"], "Travel tech"), ("Enpal", ["enpal"], "Energy"), ("1KOMMA5°", ["1komma5grad", "1komma5"], "Energy"),
     ("SAP", ["sap"], "Software"), ("Siemens", ["siemens"], "Industrial tech"), ("BMW Group", ["bmwgroup", "bmw"], "Automotive"),
     ("Allianz", ["allianz"], "Insurance"), ("Deutsche Bank", ["deutschebank", "db"], "Banking"),
+    ("Babbel", ["babbel"], "Edtech"), ("trivago", ["trivago"], "Travel tech"), ("DeepL", ["deepl"], "Software"),
+    ("idealo", ["idealo"], "E-commerce"), ("Holidu", ["holidu"], "Travel tech"), ("FINN", ["finn", "finnauto"], "Mobility"),
+    ("Flink", ["flink", "goflink"], "E-commerce"), ("Upvest", ["upvest"], "Fintech"), ("Pliant", ["pliant", "getpliant"], "Fintech"),
+    ("Billie", ["billie"], "Fintech"), ("Forto", ["forto"], "Logistics"), ("sennder", ["sennder"], "Logistics"),
+    ("wefox", ["wefox"], "Insurtech"), ("CLARK", ["clark"], "Insurtech"), ("Quantco", ["quantco"], "Data"),
+    ("Helsing", ["helsing"], "Software"), ("Parloa", ["parloa"], "Software"), ("Doctolib", ["doctolib"], "Health tech"),
+    ("adidas", ["adidas"], "Consumer"), ("DHL Group", ["dhl", "dpdhl"], "Logistics"),
+    ("Infineon", ["infineon"], "Semiconductors"), ("Siemens Healthineers", ["siemenshealthineers", "healthineers"], "Health tech"),
+    ("Munich Re", ["munichre"], "Insurance"), ("Mercedes-Benz", ["mercedesbenz", "daimler"], "Automotive"),
+    ("Deutsche Telekom", ["telekom", "deutschetelekom"], "Telecom"), ("Commerzbank", ["commerzbank"], "Banking"),
+    ("Bosch", ["bosch"], "Industrial tech"), ("Merck KGaA", ["merckgroup", "emdgroup"], "Pharma"),
+    ("Bayer", ["bayer"], "Pharma"), ("ZEISS", ["zeiss"], "Industrial tech"),
 ]
 
 SEARCH_COUNTRY = {"nl": "Netherlands", "uk": "United Kingdom", "de": "Germany"}
@@ -174,10 +187,17 @@ def main():
                 e["id"] = f"{base['id']}-{c}"
             out.append(e)
     if "de" in countries:  # Germany's national job board (Bundesagentur für Arbeit) – nearly every German vacancy
+        # (Make it in Germany and EURES show the same Bundesagentur listings for Germany, so they need no source of their own)
         out.append({"id": "ba-jobsuche-de", "name": "Bundesagentur für Arbeit job portal (Germany)", "ats": "ba_jobsuche",
                     "kind": "aggregator", "priority": 2, "industry": "", "ats_config": {"days": 14, "pages": 2, "queries": [
                         "data analyst", "business intelligence", "power bi", "bi analyst", "bi developer",
-                        "analytics engineer", "reporting analyst", "data engineer", "crm analyst"]}})
+                        "analytics engineer", "reporting analyst", "data engineer", "crm analyst",
+                        "datenanalyst", "business intelligence entwickler"]}})  # German titles – English ads can carry them
+        # English-first startup board; its public RSS feed has the newest jobs, all in Berlin, without a location field
+        out.append({"id": "berlinstartupjobs", "name": "BerlinStartupJobs (Germany)", "ats": "rss", "kind": "aggregator",
+                    "priority": 2, "industry": "Startups",
+                    "ats_config": {"url": "https://berlinstartupjobs.com/feed/", "location": "Berlin, Germany",
+                                   "lead": True, "company_sep": " // "}})
     (ROOT / "config" / "companies_eu.json").write_text(json.dumps(out, indent=1, ensure_ascii=False) + "\n", encoding="utf-8")
     print(f"{len(out)} sources written: {sum(1 for x in out if x['ats'] == 'auto')} auto-discovered employers, "
           f"{sum(1 for x in out if x.get('discovered_in', '').startswith('companies.json'))} global feeds, "

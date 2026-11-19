@@ -599,11 +599,16 @@ class HtmlList(Adapter):
 # ------------------------------------------------------------------------------------------------ RSS
 @register("rss")
 class Rss(Adapter):
-    """Generic RSS 2.0 / Atom job feed. config: {"url": feed, "assume_uae": false}"""
+    """Generic RSS 2.0 / Atom job feed. config: {"url": feed, "assume_uae": false, "location": "", "lead": false,
+    "company_sep": ""}. For a job board's feed (BerlinStartupJobs): location = where all its jobs are when the feed has
+    no location field, lead = postings are unverified leads, company_sep = "Title // Company" splits off the employer."""
 
     def fetch(self, company, ctx):
         url = self.cfg(company, "url")
         assume = bool(self.cfg(company, "assume_uae", False, required=False))
+        fixed = self.cfg(company, "location", "", required=False)
+        lead = bool(self.cfg(company, "lead", False, required=False))
+        sep = self.cfg(company, "company_sep", "", required=False)
         root = ET.fromstring(self.http.get(url, conditional=True).body)
         items = [n for n in root.iter() if n.tag.split("}")[-1] in ("item", "entry")]
         jobs = []
@@ -615,14 +620,18 @@ class Rss(Adapter):
                 key = ("joblisting_" if "job" in prefix else "") + t
                 f.setdefault(key, (c.text or "").strip() or c.attrib.get("href", ""))
             title = htmllib.unescape(f.get("title", ""))
+            employer = None
+            if sep and sep in title:
+                title, employer = (x.strip() for x in title.rsplit(sep, 1))
             link = f.get("link") or f.get("guid") or ""
             desc = html_to_text(f.get("encoded") or f.get("description") or f.get("content") or f.get("summary"))
             loc = " | ".join(v for k, v in f.items() if "location" in k and v)
-            if not (assume or _uae(loc) or (not loc and (_uae(title) or _uae(desc[:2000])))):
+            if not (assume or fixed or _uae(loc) or (not loc and (_uae(title) or _uae(desc[:2000])))):
                 continue
             jobs.append(RawJob(source=self.name, external_id=f.get("guid") or link, title=title, url=link,
-                               location=loc or ("United Arab Emirates" if assume else ""), description=desc,
-                               posted_at=iso(parse_dt(f.get("pubdate") or f.get("published") or f.get("updated")))))
+                               location=loc or fixed or ("United Arab Emirates" if assume else ""), description=desc,
+                               posted_at=iso(parse_dt(f.get("pubdate") or f.get("published") or f.get("updated"))),
+                               company_name=employer, is_official=not lead))
         return AdapterResult(jobs, complete=True)
 
 

@@ -19,6 +19,7 @@ from pathlib import Path
 
 from .config import ROOT
 from .crypto import decrypt, encrypt, parse_key, token
+from .region import is_eu
 
 VAULT_PATHS = ("state", "output")
 SKIP = {"outbox.log"}
@@ -188,7 +189,8 @@ def share_links(data: dict, cv_dir: Path, key: bytes, settings) -> int:
         f = j.get("cv_file")
         if not f or (j.get("score") or 0) < thr or not (cv_dir / f).is_file():
             continue
-        t = token("share:" + f, key)[:24]
+        # Europe CV names can repeat a UAE one (job ids come from separate databases) – keep their links apart
+        t = token(("share:eu:" if is_eu() else "share:") + f, key)[:24]
         d = Path(out) / "cv" / t
         d.mkdir(parents=True, exist_ok=True)
         (d / name).write_bytes((cv_dir / f).read_bytes())
